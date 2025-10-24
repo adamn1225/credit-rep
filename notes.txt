@@ -1,0 +1,6 @@
+cron job example:
+
+0 10 * * * /usr/bin/python3 /home/adam/credit_disputer/main.py --check-status >> /var/log/credit_disputer_tracker.log 2>&1
+
+
+add a clean OpenAI letter-generation module

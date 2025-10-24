@@ -1,0 +1,4 @@
+bureau,	creditor_name,account_number,reason,status,date_add
+Experian,	ABC Bank,1234567890	Inaccurate balance	Disputed,	2023-01-01
+TransUnion,	XYZ Credit Union,0987654321	Wrong account status	Disputed,	2023-01-02
+Equifax,	LMN Corp,1122334455	Payment not recognized	Disputed,	2023-01-03
