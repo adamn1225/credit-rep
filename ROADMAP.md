@@ -1,6 +1,6 @@
 # Credit Disputer - Development Roadmap
 
-## ✅ Completed
+## ✅ Phase 1: Core Multi-User Features - COMPLETE!
 - [x] Multi-user database schema (users, user_accounts, disputes, templates, history)
 - [x] User authentication with password hashing
 - [x] Flask web application with Bootstrap UI
@@ -10,35 +10,33 @@
 - [x] Lob API integration for physical mail
 - [x] PDF generation with ReportLab
 - [x] Status tracking
-- [x] **User Accounts Management UI** ✨ NEW!
+- [x] **User Accounts Management UI**
   - View all derogatory accounts
   - Add accounts manually with full details
   - Update account status (pending → disputed → resolved)
   - Link accounts to disputes
   - Recent accounts widget on dashboard
   - Stats cards for account tracking
+- [x] **Bulk CSV Upload** ✨ NEW!
+  - Upload page with CSV parser
+  - CSV template download
+  - Validation and error handling
+  - Batch import multiple accounts
+- [x] **AI Letter Generation (OpenAI GPT-4)** ✨ NEW!
+  - Integration with OpenAI API
+  - `generate_dispute_letter_ai()` function
+  - Personalized letters based on account details
+  - Preview letters before sending
+  - Fallback to template if AI fails
+  - API endpoint for real-time generation
   
 ## 🔄 In Progress
-- [ ] **Bulk CSV Upload**
-  - Add upload page with CSV parser
-  - Populate user_accounts table from CSV
-  - Next priority after accounts UI
+- [ ] **Testing & Integration**
+  - Test CSV upload with sample data
+  - Test AI letter generation with OpenAI key
+  - Integrate AI letters with dispute creation flow
   
 ## 📋 Backlog
-
-### Phase 1: Core Multi-User Features
-- [ ] **Bulk CSV Upload**
-  - Add upload page with CSV parser
-  - Populate user_accounts table from CSV
-  - Validation and error handling
-  - Template CSV download
-
-- [ ] **AI Letter Generation** (OpenAI/Gemini)
-  - Integrate GPT-4 or Gemini API
-  - Create `generate_dispute_letter_ai()` function
-  - Use account details + reason to generate personalized letters
-  - Replace static Jinja2 templates with AI-generated content
-  - Add letter preview before sending
 
 ### Phase 2: Automation & Workflows
 - [ ] **Automated Follow-ups**

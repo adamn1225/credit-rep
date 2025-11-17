@@ -54,23 +54,25 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <h5 class="card-title">What happens when you send?</h5>
+            <h5 class="card-title">📋 Batch Processing Workflow</h5>
             <ol class="mb-0">
-                <li>Generate PDF letters for each dispute</li>
-                <li>Mail them via Lob API to credit bureaus</li>
-                <li>Log tracking information to the database</li>
-                <li>Update dispute status</li>
+                <li><strong>Step 1:</strong> Generate PDF letters (AI + ReportLab) - FREE ✅</li>
+                <li><strong>Step 2:</strong> Preview generated PDFs before sending</li>
+                <li><strong>Step 3:</strong> Send via Lob API (costs ~$1-2 per letter) 💰</li>
             </ol>
+            <div class="alert alert-info mt-3 mb-0">
+                <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Always review PDFs before sending to avoid wasting Lob credits!
+            </div>
         </div>
     </div>
 
-    <form method="POST" onsubmit="return confirm('Are you sure you want to send {{ queue|length }} letter(s)? This will use your Lob API credits.');">
+    <form method="POST" action="{{ url_for('generate_batch') }}">
         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
             <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-x-circle"></i> Cancel
             </a>
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-send"></i> Send Batch Now
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="bi bi-file-earmark-pdf"></i> Generate PDFs (Step 1)
             </button>
         </div>
     </form>

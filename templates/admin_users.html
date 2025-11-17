@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2"><i class="bi bi-people"></i> User Management</h1>
+            <p class="text-muted">Manage user accounts and permissions</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                <i class="bi bi-person-plus"></i> Create New User
+            </button>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Full Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td><strong>{{ user.username }}</strong></td>
+                            <td>{{ user.email or 'N/A' }}</td>
+                            <td>{{ user.full_name or 'N/A' }}</td>
+                            <td>
+                                {% if user.role == 'admin' %}
+                                    <span class="badge bg-danger">Admin</span>
+                                {% else %}
+                                    <span class="badge bg-primary">User</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_active == 1 %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at[:10] if user.created_at else 'N/A' }}</td>
+                            <td>{{ user.last_login[:10] if user.last_login else 'Never' }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#viewUserModal{{ user.id }}"
+                                            title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    
+                                    {% if user.id == session.get('user_id') %}
+                                    <button class="btn btn-outline-secondary" disabled title="Cannot modify your own account">
+                                        <i class="bi bi-dash-circle"></i>
+                                    </button>
+                                    {% elif user.is_active == 1 %}
+                                    <button class="btn btn-outline-warning"
+                                            onclick="toggleUserStatus({{ user.id }}, 0)"
+                                            title="Deactivate">
+                                        <i class="bi bi-pause-circle"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-success"
+                                            onclick="toggleUserStatus({{ user.id }}, 1)"
+                                            title="Activate">
+                                        <i class="bi bi-play-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if user.id == session.get('user_id') %}
+                                    <button class="btn btn-outline-secondary" disabled title="Cannot delete your own account">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-danger"
+                                            onclick="confirmDeleteUser({{ user.id }}, '{{ user.username }}')"
+                                            title="Delete User">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- View User Modal -->
+                        <div class="modal fade" id="viewUserModal{{ user.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">User Details</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <dl class="row">
+                                            <dt class="col-sm-4">User ID:</dt>
+                                            <dd class="col-sm-8">{{ user.id }}</dd>
+                                            
+                                            <dt class="col-sm-4">Username:</dt>
+                                            <dd class="col-sm-8"><strong>{{ user.username }}</strong></dd>
+                                            
+                                            <dt class="col-sm-4">Email:</dt>
+                                            <dd class="col-sm-8">{{ user.email or 'Not provided' }}</dd>
+                                            
+                                            <dt class="col-sm-4">Full Name:</dt>
+                                            <dd class="col-sm-8">{{ user.full_name or 'Not provided' }}</dd>
+                                            
+                                            <dt class="col-sm-4">Role:</dt>
+                                            <dd class="col-sm-8">
+                                                {% if user.role == 'admin' %}
+                                                    <span class="badge bg-danger">Admin</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary">User</span>
+                                                {% endif %}
+                                            </dd>
+                                            
+                                            <dt class="col-sm-4">Status:</dt>
+                                            <dd class="col-sm-8">
+                                                {% if user.is_active == 1 %}
+                                                    <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                {% endif %}
+                                            </dd>
+                                            
+                                            <dt class="col-sm-4">Created:</dt>
+                                            <dd class="col-sm-8">{{ user.created_at or 'N/A' }}</dd>
+                                            
+                                            <dt class="col-sm-4">Last Login:</dt>
+                                            <dd class="col-sm-8">{{ user.last_login or 'Never logged in' }}</dd>
+                                        </dl>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-body">
+            <h6><i class="bi bi-info-circle"></i> User Management Tips</h6>
+            <ul class="mb-0 small">
+                <li><strong>Admin users</strong> can create new users, manage all accounts, and access this page</li>
+                <li><strong>Regular users</strong> can only access their own disputes and accounts</li>
+                <li>Deactivating a user prevents login but preserves their data</li>
+                <li>Deleting a user removes all their disputes and accounts (CASCADE delete)</li>
+                <li>You cannot delete or deactivate your own admin account</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="create_user">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="username" required 
+                               placeholder="e.g., johndoe">
+                        <small class="text-muted">Used for login (lowercase, no spaces)</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" name="password" required minlength="6"
+                               placeholder="Minimum 6 characters">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" 
+                               placeholder="user@example.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" 
+                               placeholder="John Doe">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-select" name="role" required>
+                            <option value="user">User (Regular Access)</option>
+                            <option value="admin">Admin (Full Access)</option>
+                        </select>
+                        <small class="text-muted">Admins can manage users and view all data</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-person-plus"></i> Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden forms for actions -->
+<form id="toggleStatusForm" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="toggle_status">
+    <input type="hidden" name="user_id" id="toggleUserId">
+    <input type="hidden" name="is_active" id="toggleIsActive">
+</form>
+
+<form id="deleteUserForm" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="delete_user">
+    <input type="hidden" name="user_id" id="deleteUserId">
+</form>
+
+<script>
+function toggleUserStatus(userId, isActive) {
+    const action = isActive ? 'activate' : 'deactivate';
+    if (confirm(`Are you sure you want to ${action} this user?`)) {
+        document.getElementById('toggleUserId').value = userId;
+        document.getElementById('toggleIsActive').value = isActive;
+        document.getElementById('toggleStatusForm').submit();
+    }
+}
+
+function confirmDeleteUser(userId, username) {
+    if (confirm(`⚠️ WARNING: Delete user "${username}"?\n\nThis will permanently delete:\n- User account\n- All their disputes\n- All their accounts\n\nThis action cannot be undone!`)) {
+        document.getElementById('deleteUserId').value = userId;
+        document.getElementById('deleteUserForm').submit();
+    }
+}
+</script>
+{% endblock %}

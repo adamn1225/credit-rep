@@ -1,22 +1,94 @@
 import sys
-from generator import build_letters
+import sqlite3
+from pathlib import Path
+from generator import render_letter, generate_pdf
 from mailer import send_letter
-from db import init_db, log_dispute
+from db import init_db, DB_PATH
 from tracker import check_lob_status
+
+def get_pending_disputes():
+    """Get all pending disputes from database across all users"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    disputes = conn.execute("""
+        SELECT d.*, ua.creditor_name, ua.account_type, ua.balance, ua.notes
+        FROM disputes d
+        LEFT JOIN user_accounts ua ON d.account_id = ua.id
+        WHERE d.status = 'pending'
+        ORDER BY d.sent_date
+    """).fetchall()
+    conn.close()
+    return disputes
+
+def update_dispute_status(dispute_id, tracking_id, status):
+    """Update dispute with tracking ID and status"""
+    conn = sqlite3.connect(DB_PATH)
+    from datetime import datetime
+    conn.execute("""
+        UPDATE disputes 
+        SET tracking_id = ?, status = ?, sent_date = ?
+        WHERE id = ?
+    """, (tracking_id, status, datetime.utcnow().isoformat(), dispute_id))
+    
+    # Log to history
+    conn.execute("""
+        INSERT INTO dispute_history (dispute_id, action, new_status, notes)
+        VALUES (?, ?, ?, ?)
+    """, (dispute_id, 'sent', status, f'Letter sent via Lob (tracking: {tracking_id})'))
+    
+    conn.commit()
+    conn.close()
 
 def run_batch():
     print("🚀 Starting dispute batch...")
     init_db()
 
-    letters = build_letters()
+    disputes = get_pending_disputes()
+    
+    if not disputes:
+        print("⚠️ No pending disputes found.")
+        return
+    
+    print(f"📋 Found {len(disputes)} pending dispute(s)")
 
-    for pdf_path, row in letters:
-        desc = f"{row['bureau']} dispute – {row['creditor_name']} ({row['account_number']})"
-        tracking_id = send_letter(pdf_path, row["bureau"], desc)
-        if tracking_id:
-            log_dispute(row["account_number"], row["bureau"], desc, tracking_id)
-        else:
-            log_dispute(row["account_number"], row["bureau"], desc, "N/A", status="failed")
+    for dispute in disputes:
+        try:
+            # Prepare account info for letter generation
+            account_info = {
+                'bureau': dispute['bureau'],
+                'creditor_name': dispute['creditor_name'],
+                'account_number': dispute['account_number'],
+                'reason': dispute['description'],
+                'account_type': dispute.get('account_type', ''),
+                'balance': dispute.get('balance', ''),
+                'notes': dispute.get('notes', '')
+            }
+            
+            # Generate letter content (AI or template)
+            letter_text = render_letter(account_info, use_ai=True)
+            
+            # Generate PDF
+            bureau_dir = Path(f"disputes/generated/{dispute['bureau'].lower()}")
+            bureau_dir.mkdir(parents=True, exist_ok=True)
+            pdf_path = bureau_dir / f"{dispute['account_number']}.pdf"
+            generate_pdf(letter_text, pdf_path)
+            
+            print(f"📄 Generated PDF: {pdf_path}")
+            
+            # Send via Lob
+            desc = f"{dispute['bureau']} dispute – {dispute['creditor_name']} ({dispute['account_number']})"
+            tracking_id = send_letter(pdf_path, dispute['bureau'], desc)
+            
+            if tracking_id:
+                update_dispute_status(dispute['id'], tracking_id, 'sent')
+                print(f"✅ Sent: {desc} | Tracking: {tracking_id}")
+            else:
+                update_dispute_status(dispute['id'], 'N/A', 'failed')
+                print(f"❌ Failed: {desc}")
+                
+        except Exception as e:
+            print(f"❌ Error processing dispute {dispute['id']}: {e}")
+            update_dispute_status(dispute['id'], 'N/A', 'failed')
 
     print("✅ Batch complete.")
 

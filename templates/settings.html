@@ -105,13 +105,33 @@
         <div class="tab-pane fade" id="template" role="tabpanel">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title">Letter Template</h5>
-                    <p class="text-muted">Customize the dispute letter template (Jinja2 format).</p>
+                    <h5 class="card-title">
+                        <i class="bi bi-file-text"></i> Letter Template
+                        <span class="badge bg-info ms-2">Fallback</span>
+                    </h5>
+                    
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-robot"></i> AI Letter Generation Enabled
+                        </h6>
+                        <p class="mb-2"><strong>Primary:</strong> Letters are generated using <strong>OpenAI GPT-4o-mini</strong> for personalized, professional content.</p>
+                        <p class="mb-0"><strong>Fallback:</strong> This template is used only if the AI service is unavailable or fails. Edit it to customize your fallback letters.</p>
+                        <hr>
+                        <p class="mb-0 small">
+                            <strong>Cost:</strong> ~$0.01-0.02 per letter | 
+                            <strong>Model:</strong> GPT-4o-mini | 
+                            <strong>Where used:</strong> Preview Letter & Batch Generation
+                        </p>
+                    </div>
                     
                     <form method="POST">
                         <input type="hidden" name="action" value="save_template">
                         
                         <div class="mb-3">
+                            <label class="form-label">
+                                <strong>Jinja2 Fallback Template</strong>
+                                <span class="text-muted">(Used when AI is unavailable)</span>
+                            </label>
                             <textarea class="form-control font-monospace" name="template_content" 
                                       rows="15" style="font-size: 0.9rem;">{{ template_content }}</textarea>
                             <div class="form-text">
@@ -123,9 +143,23 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Save Template
+                            <i class="bi bi-save"></i> Save Fallback Template
                         </button>
                     </form>
+                </div>
+            </div>
+            
+            <!-- AI Generator Info Card -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-body">
+                    <h6><i class="bi bi-lightbulb"></i> How AI Letter Generation Works</h6>
+                    <ul class="mb-0 small">
+                        <li><strong>When you preview a letter:</strong> AI analyzes your account details and generates a personalized dispute letter</li>
+                        <li><strong>During batch generation:</strong> AI creates unique letters for each account automatically</li>
+                        <li><strong>Smart fallback:</strong> If AI fails, the system uses your Jinja2 template above</li>
+                        <li><strong>No configuration needed:</strong> AI is already enabled and working with your OpenAI API key</li>
+                        <li><strong>Quality:</strong> AI letters are more persuasive, professional, and tailored to each situation</li>
+                    </ul>
                 </div>
             </div>
         </div>

@@ -92,6 +92,29 @@ def init_db():
         )
     """)
     
+    # Documents table (credit reports, responses, evidence)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            account_id INTEGER,
+            dispute_id INTEGER,
+            filename TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER,
+            mime_type TEXT,
+            document_type TEXT NOT NULL,
+            upload_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            ai_analysis TEXT,
+            ai_analyzed_at TEXT,
+            description TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (account_id) REFERENCES user_accounts(id) ON DELETE SET NULL,
+            FOREIGN KEY (dispute_id) REFERENCES disputes(id) ON DELETE SET NULL
+        )
+    """)
+    
     # Create default admin user if not exists
     c.execute("SELECT COUNT(*) FROM users WHERE username = 'admin'")
     if c.fetchone()[0] == 0:
@@ -104,7 +127,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def log_dispute(user_id, account_number, bureau, description, tracking_id, status="sent", creditor_name=None, account_id=None):
+def log_dispute(user_id, account_number, bureau, description, tracking_id=None, status="sent", creditor_name=None, account_id=None):
     """Log a dispute with user isolation"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -123,10 +146,11 @@ def log_dispute(user_id, account_number, bureau, description, tracking_id, statu
     dispute_id = c.lastrowid
     
     # Log to history
+    history_note = f'Letter sent via Lob (tracking: {tracking_id})' if tracking_id else 'Dispute created'
     c.execute("""
         INSERT INTO dispute_history (dispute_id, action, new_status, notes)
         VALUES (?, ?, ?, ?)
-    """, (dispute_id, 'created', status, f'Letter sent via Lob (tracking: {tracking_id})'))
+    """, (dispute_id, 'created', status, history_note))
     
     conn.commit()
     conn.close()
@@ -320,6 +344,29 @@ def get_pending_followups(days_threshold=30):
     conn.close()
     return disputes
 
+def get_disputes_awaiting_response(user_id):
+    """Get disputes sent >30 days ago without uploaded bureau response documents"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    disputes = c.execute("""
+        SELECT d.* 
+        FROM disputes d
+        WHERE d.user_id = ?
+        AND d.status IN ('sent', 'delivered')
+        AND d.expected_response_date < datetime('now')
+        AND NOT EXISTS (
+            SELECT 1 FROM documents doc
+            WHERE doc.dispute_id = d.id
+            AND doc.document_type = 'bureau_response'
+        )
+        ORDER BY d.expected_response_date ASC
+    """, (user_id,)).fetchall()
+    
+    conn.close()
+    return disputes
+
 def mark_followup_sent(dispute_id):
     """Mark that a follow-up letter has been sent"""
     conn = sqlite3.connect(DB_PATH)
@@ -334,6 +381,85 @@ def mark_followup_sent(dispute_id):
         INSERT INTO dispute_history (dispute_id, action, notes)
         VALUES (?, ?, ?)
     """, (dispute_id, 'follow_up_sent', 'Escalation follow-up letter sent'))
+    
+    conn.commit()
+    conn.close()
+
+# --- Document Management ---
+def add_document(user_id, filename, original_filename, file_path, file_size, mime_type, 
+                 document_type, description=None, account_id=None, dispute_id=None):
+    """Add a document to the database"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO documents 
+        (user_id, filename, original_filename, file_path, file_size, mime_type, 
+         document_type, description, account_id, dispute_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, filename, original_filename, file_path, file_size, mime_type,
+          document_type, description, account_id, dispute_id))
+    conn.commit()
+    doc_id = c.lastrowid
+    conn.close()
+    return doc_id
+
+def get_user_documents(user_id, document_type=None, account_id=None, dispute_id=None):
+    """Get documents for a user with optional filters"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    query = "SELECT * FROM documents WHERE user_id = ?"
+    params = [user_id]
+    
+    if document_type:
+        query += " AND document_type = ?"
+        params.append(document_type)
+    if account_id:
+        query += " AND account_id = ?"
+        params.append(account_id)
+    if dispute_id:
+        query += " AND dispute_id = ?"
+        params.append(dispute_id)
+    
+    query += " ORDER BY upload_date DESC"
+    
+    documents = c.execute(query, params).fetchall()
+    conn.close()
+    return [dict(doc) for doc in documents]
+
+def update_document_analysis(doc_id, analysis_result):
+    """Store AI analysis results for a document"""
+    import json
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        UPDATE documents 
+        SET ai_analysis = ?, ai_analyzed_at = ?
+        WHERE id = ?
+    """, (json.dumps(analysis_result), datetime.utcnow().isoformat(), doc_id))
+    conn.commit()
+    conn.close()
+
+def get_document_by_id(doc_id, user_id):
+    """Get a specific document (with user validation)"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    doc = c.execute(
+        "SELECT * FROM documents WHERE id = ? AND user_id = ?",
+        (doc_id, user_id)
+    ).fetchone()
+    conn.close()
+    return dict(doc) if doc else None
+
+def delete_document(doc_id, user_id):
+    """Delete a document (with user validation)"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
+    conn.commit()
+    conn.close()
     
     conn.commit()
     conn.close()

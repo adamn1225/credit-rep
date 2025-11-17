@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}AI Analysis - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('documents_page') }}">Documents</a></li>
+                    <li class="breadcrumb-item active">AI Analysis</li>
+                </ol>
+            </nav>
+            <h1 class="h2"><i class="bi bi-robot"></i> AI Document Analysis</h1>
+        </div>
+    </div>
+
+    <!-- Document Info Card -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5><i class="bi bi-file-pdf text-danger"></i> {{ document.original_filename }}</h5>
+                    <p class="text-muted mb-2">
+                        {% if document.document_type == 'credit_report' %}
+                            <span class="badge bg-info">Credit Report</span>
+                        {% elif document.document_type == 'bureau_response' %}
+                            <span class="badge bg-warning">Bureau Response</span>
+                        {% elif document.document_type == 'evidence' %}
+                            <span class="badge bg-success">Evidence</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ document.document_type|title }}</span>
+                        {% endif %}
+                        <span class="ms-2">{{ (document.file_size / 1024)|round(1) }} KB</span>
+                        <span class="ms-2">Uploaded {{ document.upload_date[:10] }}</span>
+                    </p>
+                    {% if document.description %}
+                    <p class="mb-0">{{ document.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{{ url_for('download_document', doc_id=document.id) }}" class="btn btn-outline-primary mb-2">
+                        <i class="bi bi-download"></i> Download
+                    </a>
+                    <form method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-outline-info mb-2">
+                            <i class="bi bi-arrow-repeat"></i> Re-Analyze
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if analysis %}
+        {% if document.document_type == 'credit_report' %}
+            <!-- Credit Report Analysis -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-exclamation-triangle text-warning"></i> Derogatory Accounts Found</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if analysis.accounts %}
+                                {% for account in analysis.accounts %}
+                                <div class="border rounded p-3 mb-3">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="mb-2">{{ account.creditor }}</h6>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <small class="text-muted">Bureau:</small> <strong>{{ account.bureau }}</strong><br>
+                                                    <small class="text-muted">Account:</small> <strong>{{ account.account_number }}</strong><br>
+                                                    <small class="text-muted">Type:</small> <strong>{{ account.type }}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted">Balance:</small> <strong>${{ account.balance }}</strong><br>
+                                                    <small class="text-muted">Priority:</small> 
+                                                    {% if account.priority == 'High' %}
+                                                        <span class="badge bg-danger">High</span>
+                                                    {% elif account.priority == 'Medium' %}
+                                                        <span class="badge bg-warning">Medium</span>
+                                                    {% else %}
+                                                        <span class="badge bg-info">Low</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <small class="text-muted">Recommended Dispute:</small><br>
+                                                <span class="text-primary">{{ account.dispute_reason }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-end">
+                                            <form method="POST" action="{{ url_for('add_account') }}">
+                                                <input type="hidden" name="creditor_name" value="{{ account.creditor }}">
+                                                <input type="hidden" name="account_number" value="{{ account.account_number }}">
+                                                <input type="hidden" name="account_type" value="{{ account.type }}">
+                                                <input type="hidden" name="balance" value="{{ account.balance }}">
+                                                <input type="hidden" name="status" value="open">
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-plus-circle"></i> Add to Accounts
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> No derogatory accounts found. Your credit looks good!
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- Summary Card -->
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> Summary</h6>
+                        </div>
+                        <div class="card-body">
+                            <p>{{ analysis.summary }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Recommendations Card -->
+                    {% if analysis.recommendations %}
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Recommendations</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-0">
+                                {% for rec in analysis.recommendations %}
+                                <li>{{ rec }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        {% elif document.document_type == 'bureau_response' %}
+            <!-- Bureau Response Analysis -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-mailbox"></i> Response Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert {% if analysis.success %}alert-success{% else %}alert-warning{% endif %}">
+                                <h6>
+                                    {% if analysis.success %}
+                                        <i class="bi bi-check-circle"></i> Positive Outcome
+                                    {% else %}
+                                        <i class="bi bi-exclamation-triangle"></i> Action Required
+                                    {% endif %}
+                                </h6>
+                                <p class="mb-0"><strong>Outcome:</strong> {{ analysis.outcome|title }}</p>
+                            </div>
+                            
+                            <h6 class="mt-4">Key Findings</h6>
+                            <ul>
+                                {% for finding in analysis.key_findings %}
+                                <li>{{ finding }}</li>
+                                {% endfor %}
+                            </ul>
+                            
+                            {% if analysis.timeline %}
+                            <h6 class="mt-4">Timeline</h6>
+                            <p>{{ analysis.timeline }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- Next Action Card -->
+                    <div class="card border-0 shadow-sm mb-4 {% if analysis.escalation_recommended %}border-danger{% endif %}">
+                        <div class="card-header {% if analysis.escalation_recommended %}bg-danger text-white{% else %}bg-white{% endif %}">
+                            <h6 class="mb-0">
+                                {% if analysis.escalation_recommended %}
+                                    <i class="bi bi-arrow-up-circle"></i> Escalation Needed
+                                {% else %}
+                                    <i class="bi bi-arrow-right-circle"></i> Next Action
+                                {% endif %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>{{ analysis.next_action }}</strong></p>
+                            {% if analysis.escalation_recommended %}
+                                <div class="alert alert-danger mb-0">
+                                    <small>Consider escalating this dispute through legal channels or CFPB complaint.</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Follow-up Strategy -->
+                    {% if analysis.followup_strategy %}
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0"><i class="bi bi-calendar-check"></i> Follow-up Strategy</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ analysis.followup_strategy }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        {% else %}
+            <!-- Supporting Document Analysis -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0"><i class="bi bi-file-text"></i> Document Insights</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if analysis.document_date %}
+                            <p><strong>Document Date:</strong> {{ analysis.document_date }}</p>
+                            {% endif %}
+                            
+                            <h6 class="mt-4">Key Facts</h6>
+                            <ul>
+                                {% for fact in analysis.key_facts %}
+                                <li>{{ fact }}</li>
+                                {% endfor %}
+                            </ul>
+                            
+                            {% if analysis.accounts_mentioned %}
+                            <h6 class="mt-4">Accounts Mentioned</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for account in analysis.accounts_mentioned %}
+                                <span class="badge bg-secondary">{{ account }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if analysis.amounts %}
+                            <h6 class="mt-4">Dollar Amounts</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for amount in analysis.amounts %}
+                                <span class="badge bg-success">${{ amount }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- Dispute Support Card -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0"><i class="bi bi-shield-check"></i> Dispute Support</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                {% if analysis.dispute_support == 'strong' %}
+                                    <div class="stat-icon bg-success mx-auto mb-2" style="width: 60px; height: 60px; line-height: 60px; font-size: 2rem;">
+                                        <i class="bi bi-check-circle"></i>
+                                    </div>
+                                    <h5 class="text-success">Strong Evidence</h5>
+                                    <p class="text-muted">This document strongly supports your dispute case.</p>
+                                {% elif analysis.dispute_support == 'moderate' %}
+                                    <div class="stat-icon bg-warning mx-auto mb-2" style="width: 60px; height: 60px; line-height: 60px; font-size: 2rem;">
+                                        <i class="bi bi-dash-circle"></i>
+                                    </div>
+                                    <h5 class="text-warning">Moderate Evidence</h5>
+                                    <p class="text-muted">This document provides some support for your dispute.</p>
+                                {% else %}
+                                    <div class="stat-icon bg-secondary mx-auto mb-2" style="width: 60px; height: 60px; line-height: 60px; font-size: 2rem;">
+                                        <i class="bi bi-info-circle"></i>
+                                    </div>
+                                    <h5 class="text-secondary">Weak Evidence</h5>
+                                    <p class="text-muted">Consider adding more supporting documents.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <!-- No Analysis Yet -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-hourglass" style="font-size: 4rem; color: #ccc;"></i>
+                <h3 class="mt-3">Analysis Pending</h3>
+                <p class="text-muted">This document hasn't been analyzed yet.</p>
+                <form method="POST">
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="bi bi-robot"></i> Analyze Now
+                    </button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Analysis Metadata -->
+    {% if document.ai_analyzed_at %}
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-body">
+            <small class="text-muted">
+                <i class="bi bi-clock"></i> Analyzed on {{ document.ai_analyzed_at[:19] }} using OpenAI GPT-4o-mini
+            </small>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

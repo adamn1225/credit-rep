@@ -131,6 +131,70 @@
     </div>
     {% endif %}
 
+    <!-- Response Reminders -->
+    {% if awaiting_response and awaiting_response|length > 0 %}
+    <div id="response-reminders" class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bell-fill text-warning"></i> 
+                        Bureau Responses Expected
+                        <span class="badge bg-warning text-dark ms-2">{{ awaiting_response|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">
+                        <i class="bi bi-info-circle"></i> 
+                        The following disputes were sent over 30 days ago. Bureau responses should have arrived by mail. 
+                        Please upload the response letters to track outcomes.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bureau</th>
+                                    <th>Creditor</th>
+                                    <th>Account</th>
+                                    <th>Sent Date</th>
+                                    <th>Days Waiting</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dispute in awaiting_response %}
+                                <tr>
+                                    <td><span class="badge bg-info">{{ dispute.bureau }}</span></td>
+                                    <td>{{ dispute.creditor_name or 'N/A' }}</td>
+                                    <td><code>{{ dispute.account_number }}</code></td>
+                                    <td>{{ dispute.sent_date[:10] }}</td>
+                                    <td>
+                                        {% set days_waiting = (None if not dispute.sent_date else ((None | string | length) if dispute.sent_date == None else ((2025 * 365 + 11 * 30 + 17) - (dispute.sent_date[:4] | int * 365 + dispute.sent_date[5:7] | int * 30 + dispute.sent_date[8:10] | int)))) %}
+                                        <span class="badge bg-warning text-dark">{{ days_waiting or '30+' }} days</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('documents_page') }}?dispute_id={{ dispute.id }}" 
+                                           class="btn btn-sm btn-warning">
+                                            <i class="bi bi-cloud-upload"></i> Upload Response
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <small>
+                            <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> 
+                            Upload bureau response letters as PDFs. Our AI will automatically analyze the outcome and recommend next steps.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Recent Accounts Widget -->
     {% if recent_accounts %}
     <div class="row mb-4">

@@ -10,6 +10,9 @@
             <p class="text-muted">Manage derogatory accounts for dispute</p>
         </div>
         <div class="col-auto">
+            <a href="{{ url_for('upload_accounts') }}" class="btn btn-success me-2">
+                <i class="bi bi-upload"></i> Bulk Upload
+            </a>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
                 <i class="bi bi-plus-circle"></i> Add Account
             </button>
@@ -151,6 +154,11 @@
                                         <i class="bi bi-eye"></i>
                                     </button>
                                     {% if account.status == 'pending' %}
+                                    <a href="{{ url_for('preview_letter', account_id=account.id) }}" 
+                                       class="btn btn-outline-info"
+                                       title="Preview AI Letter">
+                                        <i class="bi bi-robot"></i>
+                                    </a>
                                     <a href="{{ url_for('add_dispute') }}?account_id={{ account.id }}" 
                                        class="btn btn-outline-success"
                                        title="Create Dispute">

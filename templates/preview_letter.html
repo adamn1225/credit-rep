@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Preview Letter - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="mb-4">
+                <a href="{{ url_for('accounts') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Accounts
+                </a>
+            </div>
+
+            <!-- Account Info Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0"><i class="bi bi-file-text"></i> AI Letter Preview</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Bureau:</dt>
+                                <dd class="col-sm-8"><span class="badge bg-info">{{ account.bureau }}</span></dd>
+                                
+                                <dt class="col-sm-4">Creditor:</dt>
+                                <dd class="col-sm-8">{{ account.creditor_name }}</dd>
+                                
+                                <dt class="col-sm-4">Account:</dt>
+                                <dd class="col-sm-8"><code>{{ account.account_number }}</code></dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Type:</dt>
+                                <dd class="col-sm-8">{{ account.account_type or 'N/A' }}</dd>
+                                
+                                <dt class="col-sm-4">Balance:</dt>
+                                <dd class="col-sm-8">
+                                    {% if account.balance %}
+                                        ${{ "%.2f"|format(account.balance) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">Reason:</dt>
+                                <dd class="col-sm-8">{{ account.reason }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Letter Section -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-robot"></i> AI-Generated Letter</h5>
+                    <button id="generateBtn" class="btn btn-primary" onclick="generateLetter()">
+                        <i class="bi bi-stars"></i> Generate with AI
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Loading State -->
+                    <div id="loadingState" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3 text-muted">AI is generating your personalized dispute letter...</p>
+                        <small class="text-muted">This may take 10-15 seconds</small>
+                    </div>
+
+                    <!-- Initial State -->
+                    <div id="initialState" class="text-center py-5">
+                        <i class="bi bi-file-earmark-text" style="font-size: 4rem; color: #ccc;"></i>
+                        <h5 class="mt-3">Click "Generate with AI" to create your letter</h5>
+                        <p class="text-muted">AI will generate a personalized, legally-compliant dispute letter based on your account details.</p>
+                    </div>
+
+                    <!-- Letter Preview -->
+                    <div id="letterPreview" style="display: none;">
+                        <div class="border rounded p-4 bg-light" style="font-family: 'Courier New', monospace; white-space: pre-wrap;" id="letterContent">
+                        </div>
+                        
+                        <div class="mt-4 d-flex justify-content-between">
+                            <button class="btn btn-outline-primary" onclick="generateLetter()">
+                                <i class="bi bi-arrow-clockwise"></i> Regenerate
+                            </button>
+                            <div>
+                                <button class="btn btn-outline-secondary me-2" onclick="copyLetter()">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                                <button class="btn btn-success" onclick="useThisLetter()">
+                                    <i class="bi bi-check-circle"></i> Use This Letter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="errorState" class="alert alert-danger" style="display: none;">
+                        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Generation Failed</h5>
+                        <p id="errorMessage"></p>
+                        <button class="btn btn-outline-danger" onclick="generateLetter()">
+                            <i class="bi bi-arrow-clockwise"></i> Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-body">
+                    <h6><i class="bi bi-info-circle"></i> About AI-Generated Letters</h6>
+                    <ul class="small mb-0">
+                        <li>Letters are generated using GPT-4, trained on credit repair best practices</li>
+                        <li>Each letter is personalized to your specific account and dispute reason</li>
+                        <li>Letters cite Fair Credit Reporting Act (FCRA) rights automatically</li>
+                        <li>You can regenerate multiple times until you're satisfied</li>
+                        <li>Final letter will be saved and sent via Lob API to the credit bureau</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const accountData = {
+    bureau: '{{ account.bureau }}',
+    creditor_name: '{{ account.creditor_name }}',
+    account_number: '{{ account.account_number }}',
+    account_type: '{{ account.account_type or "" }}',
+    balance: '{{ account.balance or "" }}',
+    reason: '{{ account.reason }}',
+    notes: '{{ account.notes or "" }}'
+};
+
+function generateLetter() {
+    // Show loading state
+    document.getElementById('initialState').style.display = 'none';
+    document.getElementById('letterPreview').style.display = 'none';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('generateBtn').disabled = true;
+
+    // Call API
+    fetch('/api/generate-letter', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(accountData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('generateBtn').disabled = false;
+
+        if (data.success) {
+            // Show letter preview
+            document.getElementById('letterContent').textContent = data.letter;
+            document.getElementById('letterPreview').style.display = 'block';
+        } else {
+            // Show error
+            document.getElementById('errorMessage').textContent = data.error || 'Unknown error occurred';
+            document.getElementById('errorState').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('generateBtn').disabled = false;
+        document.getElementById('errorMessage').textContent = 'Network error: ' + error.message;
+        document.getElementById('errorState').style.display = 'block';
+    });
+}
+
+function copyLetter() {
+    const letterText = document.getElementById('letterContent').textContent;
+    navigator.clipboard.writeText(letterText).then(() => {
+        alert('Letter copied to clipboard!');
+    });
+}
+
+function useThisLetter() {
+    // TODO: Save letter and create dispute
+    alert('This feature will be implemented to save the letter and create a dispute.');
+    window.location.href = '{{ url_for("accounts") }}';
+}
+</script>
+{% endblock %}

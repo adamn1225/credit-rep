@@ -47,13 +47,32 @@
                             <i class="bi bi-send"></i> Send Batch
                         </a>
                     </li>
+
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}">
-                            <i class="bi bi-gear"></i> Settings
+                        <a class="nav-link {% if request.endpoint == 'documents' %}active{% endif %}" href="{{ url_for('documents') }}">
+                            <i class="bi bi-file-earmark-pdf"></i> Documents
                         </a>
                     </li>
+                    {% if role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">
+                            <i class="bi bi-shield-lock"></i> Admin
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <ul class="navbar-nav">
+                    {% if stats and stats.get('awaiting_response', 0) > 0 %}
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{{ url_for('index') }}#response-reminders" title="Disputes awaiting bureau responses">
+                            <i class="bi bi-bell-fill text-warning"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ stats.awaiting_response }}
+                                <span class="visually-hidden">pending responses</span>
+                            </span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> {{ username }}

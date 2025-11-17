@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2"><i class="bi bi-file-earmark-pdf"></i> Document Manager</h1>
+            <p class="text-muted">Upload credit reports, bureau responses, and supporting evidence</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-cloud-upload"></i> Upload Document
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Documents</h6>
+                            <h3 class="mb-0">{{ doc_stats.total }}</h3>
+                        </div>
+                        <div class="stat-icon bg-primary">
+                            <i class="bi bi-file-earmark"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Credit Reports</h6>
+                            <h3 class="mb-0">{{ doc_stats.credit_reports }}</h3>
+                        </div>
+                        <div class="stat-icon bg-info">
+                            <i class="bi bi-file-text"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Bureau Responses</h6>
+                            <h3 class="mb-0">{{ doc_stats.bureau_responses }}</h3>
+                        </div>
+                        <div class="stat-icon bg-warning">
+                            <i class="bi bi-mailbox"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">AI Analyzed</h6>
+                            <h3 class="mb-0">{{ doc_stats.analyzed }}</h3>
+                        </div>
+                        <div class="stat-icon bg-success">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if documents|length == 0 %}
+    <!-- Empty State -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-cloud-upload" style="font-size: 4rem; color: #ccc;"></i>
+            <h3 class="mt-3">No documents yet</h3>
+            <p class="text-muted">Upload credit reports, bureau responses, or supporting evidence.</p>
+            <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-cloud-upload"></i> Upload Your First Document
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <!-- Documents Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Document</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th>Linked To</th>
+                            <th>AI Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <i class="bi bi-file-pdf text-danger"></i>
+                                <strong>{{ doc.original_filename }}</strong>
+                                {% if doc.description %}
+                                <br><small class="text-muted">{{ doc.description }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.document_type == 'credit_report' %}
+                                    <span class="badge bg-info">Credit Report</span>
+                                {% elif doc.document_type == 'bureau_response' %}
+                                    <span class="badge bg-warning">Bureau Response</span>
+                                {% elif doc.document_type == 'evidence' %}
+                                    <span class="badge bg-success">Evidence</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ doc.document_type|title }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ (doc.file_size / 1024)|round(1) }} KB</td>
+                            <td>{{ doc.upload_date[:10] }}</td>
+                            <td>
+                                {% if doc.account_id %}
+                                    <span class="badge bg-primary">Account</span>
+                                {% elif doc.dispute_id %}
+                                    <span class="badge bg-warning">Dispute</span>
+                                {% else %}
+                                    <span class="text-muted">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.ai_analysis %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Analyzed</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-hourglass"></i> Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
+                                       class="btn btn-outline-primary"
+                                       title="Download">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <a href="{{ url_for('analyze_document_view', doc_id=doc.id) }}" 
+                                       class="btn btn-outline-info"
+                                       title="AI Analysis">
+                                        <i class="bi bi-robot"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_document_route', doc_id=doc.id) }}" style="display: inline;">
+                                        <button type="submit" 
+                                                class="btn btn-outline-danger btn-sm"
+                                                onclick="return confirm('Delete this document?')"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Info Card -->
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-body">
+            <h6><i class="bi bi-lightbulb"></i> Document Tips</h6>
+            <ul class="mb-0 small">
+                <li><strong>Credit Reports:</strong> Upload your full credit reports from all 3 bureaus</li>
+                <li><strong>Bureau Responses:</strong> Upload response letters to track outcomes</li>
+                <li><strong>Supporting Evidence:</strong> Bank statements, receipts, identity docs</li>
+                <li><strong>AI Analysis:</strong> Automatically extracts accounts and recommends actions</li>
+                <li><strong>Privacy:</strong> Your documents are stored securely and only you can access them</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Document Type <span class="text-danger">*</span></label>
+                        <select class="form-select" name="document_type" required>
+                            <option value="">Select type...</option>
+                            <option value="credit_report">Credit Report (3 Bureaus)</option>
+                            <option value="bureau_response">Bureau Response Letter</option>
+                            <option value="evidence">Supporting Evidence</option>
+                            <option value="bank_statement">Bank Statement</option>
+                            <option value="receipt">Payment Receipt</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <small class="text-muted">Helps AI understand what to extract</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">File <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" name="document" accept=".pdf,.png,.jpg,.jpeg" required>
+                        <small class="text-muted">PDF, PNG, or JPG (max 16MB)</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="2" placeholder="e.g., Experian credit report from November 2025"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Link to Account (Optional)</label>
+                            <select class="form-select" name="account_id">
+                                <option value="">None</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}">{{ account.creditor_name }} - {{ account.account_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Link to Dispute (Optional)</label>
+                            <select class="form-select" name="dispute_id">
+                                <option value="">None</option>
+                                {% for dispute in disputes %}
+                                <option value="{{ dispute.id }}">{{ dispute.bureau }} - {{ dispute.account_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-robot"></i> <strong>AI will analyze this document automatically!</strong>
+                        <ul class="mb-0 small mt-2">
+                            <li><strong>Credit Reports:</strong> Extracts all derogatory accounts</li>
+                            <li><strong>Bureau Responses:</strong> Determines outcome and next steps</li>
+                            <li><strong>Evidence:</strong> Identifies key facts for your case</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> Upload & Analyze
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
