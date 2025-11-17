@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Next Credit{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2"><i class="bi bi-speedometer2"></i> Dashboard</h1>
+            <p class="text-muted">Dispute History & Analytics</p>
+        </div>
+        <div class="col-auto">
+            <form method="POST" action="{{ url_for('check_status') }}" class="d-inline">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-clockwise"></i> Check Status
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Accounts</h6>
+                            <h2 class="mb-0">{{ stats.total_accounts }}</h2>
+                            <small class="text-muted">{{ stats.pending_accounts }} pending</small>
+                        </div>
+                        <div class="stat-icon bg-secondary">
+                            <i class="bi bi-credit-card"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Disputes</h6>
+                            <h2 class="mb-0">{{ stats.total_disputes }}</h2>
+                        </div>
+                        <div class="stat-icon bg-primary">
+                            <i class="bi bi-envelope-paper"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Delivered</h6>
+                            <h2 class="mb-0">{{ stats.delivered }}</h2>
+                            <small class="text-success">{{ stats.delivery_rate }}%</small>
+                        </div>
+                        <div class="stat-icon bg-success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">In Transit</h6>
+                            <h2 class="mb-0">{{ stats.in_transit }}</h2>
+                        </div>
+                        <div class="stat-icon bg-warning">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Resolved</h6>
+                            <h2 class="mb-0">{{ stats.resolved }}</h2>
+                        </div>
+                        <div class="stat-icon bg-info">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card stat-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Failed</h6>
+                            <h2 class="mb-0">{{ stats.failed }}</h2>
+                        </div>
+                        <div class="stat-icon bg-danger">
+                            <i class="bi bi-x-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if stats.queue_count > 0 %}
+    <div class="alert alert-warning mb-4">
+        <i class="bi bi-clock-history"></i> 
+        <strong>{{ stats.queue_count }}</strong> dispute(s) pending in queue. 
+        <a href="{{ url_for('send_batch') }}" class="alert-link">Send batch now →</a>
+    </div>
+    {% endif %}
+
+    <!-- Recent Accounts Widget -->
+    {% if recent_accounts %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-credit-card"></i> Recent Accounts</h5>
+                    <a href="{{ url_for('accounts') }}" class="btn btn-sm btn-outline-primary">View All →</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bureau</th>
+                                    <th>Creditor</th>
+                                    <th>Account #</th>
+                                    <th>Status</th>
+                                    <th>Added</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for account in recent_accounts %}
+                                <tr>
+                                    <td><span class="badge bg-info">{{ account.bureau }}</span></td>
+                                    <td><strong>{{ account.creditor_name }}</strong></td>
+                                    <td><code>{{ account.account_number }}</code></td>
+                                    <td>
+                                        {% if account.status == 'pending' %}
+                                            <span class="badge bg-secondary">Pending</span>
+                                        {% elif account.status == 'disputed' %}
+                                            <span class="badge bg-warning">Disputed</span>
+                                        {% elif account.status == 'resolved' %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ account.uploaded_at[:10] }}</td>
+                                    <td>
+                                        {% if account.status == 'pending' %}
+                                        <a href="{{ url_for('add_dispute') }}?account_id={{ account.id }}" 
+                                           class="btn btn-sm btn-success">
+                                            <i class="bi bi-send"></i> Dispute
+                                        </a>
+                                        {% else %}
+                                        <a href="{{ url_for('accounts') }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if disputes|length == 0 %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 4rem; color: #ccc;"></i>
+        <h3 class="mt-3">No disputes logged yet</h3>
+        <p class="text-muted">Get started by adding a new dispute or sending a batch.</p>
+        <div class="mt-4">
+            <a href="{{ url_for('add_dispute') }}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Add New Dispute
+            </a>
+            <a href="{{ url_for('send_batch') }}" class="btn btn-outline-primary">
+                <i class="bi bi-send"></i> Send Batch
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list" type="button">
+                <i class="bi bi-list-ul"></i> List View
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button">
+                <i class="bi bi-bar-chart"></i> Analytics
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content bg-white border border-top-0 rounded-bottom p-4" id="dashboardTabContent">
+        <!-- List View Tab -->
+        <div class="tab-pane fade show active" id="list" role="tabpanel">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Bureau</th>
+                            <th>Description</th>
+                            <th>Sent Date</th>
+                            <th>Tracking ID</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dispute in disputes %}
+                        <tr>
+                            <td><strong>{{ dispute.bureau }}</strong></td>
+                            <td>{{ dispute.description }}</td>
+                            <td>{{ dispute.sent_date[:10] if dispute.sent_date else 'N/A' }}</td>
+                            <td><code>{{ dispute.tracking_id }}</code></td>
+                            <td>
+                                <span class="badge bg-{{ get_status_color(dispute.status) }}">
+                                    {{ dispute.status.upper() }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('download_pdf', dispute_id=dispute.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-download"></i> PDF
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-pane fade" id="analytics" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <canvas id="statusChart"></canvas>
+                </div>
+                <div class="col-md-6">
+                    <canvas id="bureauChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if disputes|length > 0 %}
+<script>
+// Fetch stats from API
+fetch('{{ url_for("api_stats") }}')
+    .then(response => response.json())
+    .then(data => {
+        // Status Distribution Pie Chart
+        const statusCtx = document.getElementById('statusChart');
+        new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(data.status_distribution),
+                datasets: [{
+                    data: Object.values(data.status_distribution),
+                    backgroundColor: [
+                        '#4CAF50', '#FFC107', '#2196F3', 
+                        '#00BCD4', '#F44336', '#9E9E9E'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Status Distribution'
+                    }
+                }
+            }
+        });
+
+        // Bureau Distribution Bar Chart
+        const bureauCtx = document.getElementById('bureauChart');
+        new Chart(bureauCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(data.bureau_distribution),
+                datasets: [{
+                    label: 'Disputes',
+                    data: Object.values(data.bureau_distribution),
+                    backgroundColor: '#2196F3'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Disputes by Bureau'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

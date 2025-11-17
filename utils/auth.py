@@ -36,7 +36,7 @@ def login_form():
             st.session_state["auth_user"] = username
             st.session_state["role"] = user.iloc[0]["role"]
             st.success(f"Welcome, {username}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid credentials.")
 
@@ -45,4 +45,4 @@ def logout_button():
         if st.sidebar.button("Logout"):
             del st.session_state["auth_user"]
             del st.session_state["role"]
-            st.experimental_rerun()
+            st.rerun()

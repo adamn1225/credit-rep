@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Send Batch - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4"><i class="bi bi-send"></i> Send New Dispute Batch</h2>
+
+    {% if queue|length == 0 %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> 
+        No pending disputes in queue. Add disputes first!
+    </div>
+    <div class="text-center py-4">
+        <a href="{{ url_for('add_dispute') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add New Dispute
+        </a>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> 
+        Ready to send <strong>{{ queue|length }}</strong> dispute(s)
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Queue Preview</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Bureau</th>
+                            <th>Creditor</th>
+                            <th>Account</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in queue %}
+                        <tr>
+                            <td><span class="badge bg-primary">{{ item.bureau }}</span></td>
+                            <td>{{ item.creditor_name }}</td>
+                            <td><code>{{ item.account_number }}</code></td>
+                            <td>{{ item.reason[:50] }}{% if item.reason|length > 50 %}...{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">What happens when you send?</h5>
+            <ol class="mb-0">
+                <li>Generate PDF letters for each dispute</li>
+                <li>Mail them via Lob API to credit bureaus</li>
+                <li>Log tracking information to the database</li>
+                <li>Update dispute status</li>
+            </ol>
+        </div>
+    </div>
+
+    <form method="POST" onsubmit="return confirm('Are you sure you want to send {{ queue|length }} letter(s)? This will use your Lob API credits.');">
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-send"></i> Send Batch Now
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
