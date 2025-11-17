@@ -228,9 +228,8 @@ def add_dispute():
             
             if immediate_send:
                 # Run batch immediately
-                result = subprocess.run(['python3', 'main.py'], 
-                                      capture_output=True, 
-                                      text=True)
+                result = subprocess.run(['python3', 'batch_processor.py'], 
+                    capture_output=True, text=True, cwd=os.getcwd())
                 if result.returncode == 0:
                     flash('✅ Dispute sent immediately!', 'success')
                 else:
@@ -576,7 +575,7 @@ def review_batch():
 def send_to_lob():
     """Actually send generated PDFs via Lob API (costs money!)"""
     # Run the batch script which sends to Lob
-    result = subprocess.run(['python3', 'main.py'], 
+    result = subprocess.run(['python3', 'batch_processor.py'], 
                           capture_output=True, 
                           text=True,
                           cwd=Path.cwd())
@@ -592,7 +591,7 @@ def send_to_lob():
 @login_required
 def check_status():
     """Check delivery status"""
-    result = subprocess.run(['python3', 'main.py', '--check-status'], 
+    result = subprocess.run(['python3', 'batch_processor.py', '--check-status'], 
                           capture_output=True, 
                           text=True,
                           cwd=Path.cwd())
