@@ -10,7 +10,13 @@ from dotenv import load_dotenv
 import PyPDF2
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_openai_client():
+    """Lazy initialization of OpenAI client"""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+    return OpenAI(api_key=api_key)
 
 def extract_text_from_pdf(pdf_path, max_pages=10):
     """Extract text from PDF file"""
@@ -29,6 +35,7 @@ def analyze_credit_report(pdf_text):
     """
     Analyze credit report and extract derogatory accounts
     """
+    client = get_openai_client()
     prompt = f"""You are a credit repair expert analyzing a credit report. 
 Extract ALL derogatory accounts (collections, charge-offs, late payments, etc.) from this credit report.
 
@@ -84,10 +91,11 @@ Return a JSON object with this structure:
             "recommendations": []
         }
 
-def analyze_bureau_response(pdf_text, original_dispute_reason):
+def analyze_bureau_response(pdf_text, original_dispute_reason=None):
     """
     Analyze bureau response letter
     """
+    client = get_openai_client()
     prompt = f"""You are a credit repair expert analyzing a credit bureau response letter.
 
 Original Dispute: {original_dispute_reason}
@@ -140,6 +148,7 @@ def analyze_supporting_document(pdf_text, document_type):
     """
     Analyze supporting evidence documents
     """
+    client = get_openai_client()
     prompt = f"""You are a credit repair expert analyzing a {document_type} document.
 
 Document Content:
