@@ -1,21 +1,47 @@
+# Core Dependencies
+Flask==3.0.0
+Werkzeug==3.0.1
+Jinja2==3.1.2
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+
+# AI Integration
+openai==1.54.3
+
+# Data & CSV
+pandas==2.3.3
+numpy==2.2.6
+
+# Lob API
+lob==4.5.4
+
+# PDF Generation
+reportlab==4.4.4
+python-docx==1.2.0
+PyPDF2==3.0.1
+
+# Environment
+python-dotenv==1.1.1
+
+# Date handling
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+
+# HTTP & API
+requests==2.32.5
+urllib3==2.5.0
 certifi==2025.10.5
 charset-normalizer==3.4.4
-dotenv==0.9.9
 idna==3.11
-lob==4.5.4
+
+# XML/Data parsing
 lxml==6.0.2
-numpy==2.2.6
-pandas==2.3.3
+xmltodict==1.0.2
+
+# Image handling
 pillow==12.0.0
-python-dateutil==2.9.0.post0
-python-docx==1.2.0
-python-dotenv==1.1.1
-pytz==2025.2
-reportlab==4.4.4
-requests==2.32.5
+
+# Utilities
 six==1.17.0
 typing_extensions==4.15.0
-tzdata==2025.2
-urllib3==2.5.0
-usps-api==0.5
-xmltodict==1.0.2
