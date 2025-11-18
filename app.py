@@ -8,6 +8,7 @@ import json
 from functools import wraps
 import pandas as pd
 import os
+import requests
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from db import (
@@ -938,6 +939,136 @@ def delete_document_route(doc_id):
     
     flash('✅ Document deleted', 'success')
     return redirect(url_for('documents'))
+
+# --- n8n Integration API Endpoints ---
+
+@app.route('/api/pending-responses', methods=['GET'])
+def api_pending_responses():
+    """API endpoint for n8n to fetch pending responses (scheduled check)"""
+    # Simple API key authentication
+    api_key = request.headers.get('X-API-Key')
+    if api_key != os.getenv('FLASK_SECRET_KEY'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Get all users with pending responses
+    from db import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Query for overdue disputes without responses
+    query = """
+        SELECT 
+            u.id as user_id,
+            u.username,
+            u.email,
+            u.full_name,
+            d.id as dispute_id,
+            d.bureau,
+            d.creditor_name,
+            d.account_number,
+            d.sent_date,
+            d.expected_response_date,
+            julianday('now') - julianday(d.sent_date) as days_waiting
+        FROM disputes d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.status IN ('sent', 'delivered')
+        AND d.expected_response_date < datetime('now')
+        AND NOT EXISTS (
+            SELECT 1 FROM documents doc
+            WHERE doc.dispute_id = d.id
+            AND doc.document_type = 'bureau_response'
+        )
+        ORDER BY d.expected_response_date ASC
+    """
+    
+    if hasattr(conn, 'row_factory'):  # SQLite
+        cursor.execute(query)
+        results = [dict(row) for row in cursor.fetchall()]
+    else:  # PostgreSQL
+        cursor.execute(query)
+        columns = [desc[0] for desc in cursor.description]
+        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    conn.close()
+    
+    return jsonify({
+        'count': len(results),
+        'pending_responses': results
+    })
+
+@app.route('/api/send-reminder', methods=['POST'])
+@login_required
+def api_send_reminder():
+    """Manually trigger n8n reminder for specific dispute"""
+    user_id = session.get('user_id')
+    data = request.json
+    dispute_id = data.get('dispute_id')
+    
+    # Get dispute and user info
+    from db import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = """
+        SELECT 
+            u.email,
+            u.full_name,
+            d.bureau,
+            d.creditor_name,
+            d.account_number,
+            d.sent_date,
+            julianday('now') - julianday(d.sent_date) as days_waiting
+        FROM disputes d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.id = ? AND d.user_id = ?
+    """
+    
+    if hasattr(conn, 'row_factory'):  # SQLite
+        cursor.execute(query, (dispute_id, user_id))
+        result = cursor.fetchone()
+    else:  # PostgreSQL
+        cursor.execute(query, (dispute_id, user_id))
+        row = cursor.fetchone()
+        if row:
+            columns = [desc[0] for desc in cursor.description]
+            result = dict(zip(columns, row))
+        else:
+            result = None
+    
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': 'Dispute not found'}), 404
+    
+    # Call n8n webhook
+    n8n_url = os.getenv('N8N_WEBHOOK_URL')
+    if not n8n_url or 'YOUR_WEBHOOK_ID' in n8n_url:
+        return jsonify({'error': 'n8n webhook not configured'}), 500
+    
+    try:
+        response = requests.post(
+            n8n_url,
+            json={
+                'type': 'manual_reminder',
+                'user_email': result['email'] if isinstance(result, dict) else result[0],
+                'user_name': result['full_name'] if isinstance(result, dict) else result[1],
+                'bureau': result['bureau'] if isinstance(result, dict) else result[2],
+                'creditor': result['creditor_name'] if isinstance(result, dict) else result[3],
+                'account_number': result['account_number'] if isinstance(result, dict) else result[4],
+                'sent_date': result['sent_date'] if isinstance(result, dict) else result[5],
+                'days_waiting': int(result['days_waiting'] if isinstance(result, dict) else result[6]),
+                'dashboard_url': url_for('index', _external=True)
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': 'Reminder sent'})
+        else:
+            return jsonify({'error': 'n8n workflow failed', 'details': response.text}), 500
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': 'Failed to connect to n8n', 'details': str(e)}), 500
 
 if __name__ == '__main__':
     # Initialize database

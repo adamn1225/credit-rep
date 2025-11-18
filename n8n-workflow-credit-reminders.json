@@ -1,0 +1,257 @@
+{
+  "name": "Credit Disputer - Response Reminders",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "credit-reminders",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "credit-reminders"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "manual_reminder"
+            }
+          ]
+        }
+      },
+      "id": "check-type",
+      "name": "Check Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@yoursite.com",
+        "toEmail": "={{ $json.user_email }}",
+        "subject": "⏰ Bureau Response Expected - {{ $json.bureau }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }\n    .alert-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }\n    .dispute-info { background: white; padding: 15px; margin: 15px 0; border-radius: 4px; border: 1px solid #e5e7eb; }\n    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }\n    .info-label { font-weight: bold; color: #6b7280; }\n    .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0; }\n    .footer { text-align: center; color: #6b7280; font-size: 12px; padding: 20px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>📬 Bureau Response Expected</h1>\n    </div>\n    \n    <div class=\"content\">\n      <p>Hi {{ $json.user_name }},</p>\n      \n      <div class=\"alert-box\">\n        <strong>⏰ Response Overdue:</strong> It's been <strong>{{ $json.days_waiting }} days</strong> since your dispute was sent.\n        The bureau response should have arrived by mail.\n      </div>\n      \n      <div class=\"dispute-info\">\n        <h3 style=\"margin-top: 0; color: #1f2937;\">Dispute Details</h3>\n        <div class=\"info-row\">\n          <span class=\"info-label\">Bureau:</span>\n          <span>{{ $json.bureau }}</span>\n        </div>\n        <div class=\"info-row\">\n          <span class=\"info-label\">Creditor:</span>\n          <span>{{ $json.creditor }}</span>\n        </div>\n        <div class=\"info-row\">\n          <span class=\"info-label\">Account:</span>\n          <span>{{ $json.account_number }}</span>\n        </div>\n        <div class=\"info-row\">\n          <span class=\"info-label\">Sent Date:</span>\n          <span>{{ $json.sent_date }}</span>\n        </div>\n      </div>\n      \n      <h3>📋 Next Steps:</h3>\n      <ol>\n        <li><strong>Check your mail</strong> - Look for letter from {{ $json.bureau }}</li>\n        <li><strong>Upload response PDF</strong> - Scan or photograph the letter</li>\n        <li><strong>AI will analyze</strong> - Get instant recommendations</li>\n      </ol>\n      \n      <div style=\"text-align: center;\">\n        <a href=\"{{ $json.dashboard_url }}\" class=\"button\">Upload Response Now →</a>\n      </div>\n      \n      <p style=\"margin-top: 30px; color: #6b7280; font-size: 14px;\">\n        💡 <strong>Why upload?</strong> Our AI will automatically analyze the bureau's response \n        and tell you if the account was deleted, verified, or needs follow-up action.\n      </p>\n    </div>\n    \n    <div class=\"footer\">\n      <p>Next Credit - Automated Credit Repair</p>\n      <p>Product of Next Noetics LLC</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email Reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [650, 200],
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "Gmail SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "response-success",
+      "name": "Response Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 400,
+          "responseBody": "={{ { \"error\": \"Invalid request type\" } }}"
+        }
+      },
+      "id": "response-error",
+      "name": "Response Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.dashboard_url }}/api/pending-responses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "scheduled-check",
+      "name": "Check Pending (Scheduled)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [250, 600],
+      "notesInFlow": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_API_KEY_CREDENTIAL",
+          "name": "Flask API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 9AM Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 600]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-loop",
+      "name": "Loop Each User",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [450, 600]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@yoursite.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "⏰ {{ $json.bureau }} Response Expected ({{ $json.days_waiting }} days)",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"font-family: Arial, sans-serif;\">\n  <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">\n    <div style=\"background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;\">\n      <h1>📬 Response Overdue: {{ Math.floor($json.days_waiting) }} Days</h1>\n    </div>\n    \n    <div style=\"background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb;\">\n      <p>Hi {{ $json.full_name || 'there' }},</p>\n      \n      <div style=\"background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;\">\n        You sent a dispute to <strong>{{ $json.bureau }}</strong> on {{ $json.sent_date }}.<br>\n        <strong>{{ Math.floor($json.days_waiting) }} days</strong> have passed - the response should be in your mailbox.\n      </div>\n      \n      <p><strong>📋 Dispute Info:</strong></p>\n      <ul>\n        <li><strong>Bureau:</strong> {{ $json.bureau }}</li>\n        <li><strong>Creditor:</strong> {{ $json.creditor_name }}</li>\n        <li><strong>Account:</strong> {{ $json.account_number }}</li>\n      </ul>\n      \n      <p><strong>✅ What to do:</strong></p>\n      <ol>\n        <li>Check your mailbox for {{ $json.bureau }} letter</li>\n        <li>Upload the PDF to your dashboard</li>\n        <li>Our AI will analyze the outcome instantly</li>\n      </ol>\n      \n      <div style=\"text-align: center; margin: 30px 0;\">\n        <a href=\"https://your-railway-app.railway.app\" style=\"display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;\">Upload Response →</a>\n      </div>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-scheduled-email",
+      "name": "Send Scheduled Reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [650, 600],
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIAL_ID",
+          "name": "Gmail SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Type": {
+      "main": [
+        [
+          {
+            "node": "Send Email Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Reminder": {
+      "main": [
+        [
+          {
+            "node": "Response Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 9AM Check": {
+      "main": [
+        [
+          {
+            "node": "Check Pending (Scheduled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Pending (Scheduled)": {
+      "main": [
+        [
+          {
+            "node": "Loop Each User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Each User": {
+      "main": [
+        [
+          {
+            "node": "Send Scheduled Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Scheduled Reminder": {
+      "main": [
+        [
+          {
+            "node": "Loop Each User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 2,
+  "updatedAt": "2025-11-17T00:00:00.000Z",
+  "versionId": "1"
+}
