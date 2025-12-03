@@ -131,7 +131,7 @@ def get_pdf_path(account_number, bureau):
 def landing():
     """Public landing page"""
     # If user is already logged in, redirect to dashboard
-    if 'username' in session:
+    if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template('landing.html')
 
