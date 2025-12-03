@@ -36,15 +36,17 @@ if os.getenv('FLASK_ENV') == 'production':
     app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JavaScript access
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 
-# Initialize database on startup (for gunicorn/production)
-try:
-    from db import init_db
-    init_db()
-    print("✅ Database tables initialized", flush=True)
-except Exception as e:
-    print(f"⚠️  Database init error: {str(e)}", flush=True)
-    import traceback
-    traceback.print_exc()
+# Database initialization disabled during worker startup to prevent timeouts
+# Tables should be created manually or via migration script
+# Uncomment below only if needed for initial setup:
+# try:
+#     from db import init_db
+#     init_db()
+#     print("✅ Database tables initialized", flush=True)
+# except Exception as e:
+#     print(f"⚠️  Database init error: {str(e)}", flush=True)
+#     import traceback
+#     traceback.print_exc()
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
