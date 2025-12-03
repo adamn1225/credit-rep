@@ -142,6 +142,14 @@ def dashboard():
     """Redirect old index route to dashboard"""
     return index()
 
+@app.route('/api/complete-tour', methods=['POST'])
+@login_required
+def complete_tour():
+    """Mark tour as completed for user"""
+    # For now, just return success (using localStorage in frontend)
+    # Later can add to database if needed
+    return jsonify({'success': True})
+
 
 @app.route('/app')
 @login_required
@@ -401,16 +409,17 @@ def accounts():
                 flash(f'✅ Account status updated to: {new_status}', 'success')
                 return redirect(url_for('accounts'))
     
-    # Load user accounts
-    accounts_list = get_user_accounts(user_id)
+    # Load user accounts and convert to dicts
+    accounts_raw = get_user_accounts(user_id)
+    accounts_list = [dict(a) for a in accounts_raw] if accounts_raw else []
     
     # Get counts by status
     stats = {
         'total': len(accounts_list),
-        'pending': len([a for a in accounts_list if a['status'] == 'pending']),
-        'disputed': len([a for a in accounts_list if a['status'] == 'disputed']),
-        'resolved': len([a for a in accounts_list if a['status'] == 'resolved']),
-        'verified': len([a for a in accounts_list if a['status'] == 'verified'])
+        'pending': len([a for a in accounts_list if a.get('status') == 'pending']),
+        'disputed': len([a for a in accounts_list if a.get('status') == 'disputed']),
+        'resolved': len([a for a in accounts_list if a.get('status') == 'resolved']),
+        'verified': len([a for a in accounts_list if a.get('status') == 'verified'])
     }
     
     return render_template('accounts.html',
