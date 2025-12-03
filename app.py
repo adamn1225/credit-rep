@@ -17,12 +17,26 @@ from db import (
     get_user_accounts, add_user_account, update_account_status, list_users,
     add_document, get_user_documents, get_document_by_id, delete_document,
     update_document_analysis, get_disputes_awaiting_response,
-    get_user_by_email, create_user_with_email, update_last_login_by_email
+    get_user_by_email, create_user_with_email, update_last_login_by_email,
+    check_profile_completed, update_user_profile
 )
 from document_analyzer import analyze_document
 import hashlib
 
 load_dotenv()
+
+def validate_password(password):
+    """Validate password meets security requirements"""
+    import re
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r'[A-Za-z]', password):
+        return False, "Password must contain at least one letter."
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number."
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;/]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>_-+=[];/)."
+    return True, "Password is valid."
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-production")
@@ -153,6 +167,73 @@ def landing():
         return redirect(url_for('dashboard'))
     return render_template('landing.html')
 
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy Policy page"""
+    return render_template('privacy_policy.html')
+
+@app.route('/terms-of-service')
+def terms_of_service():
+    """Terms of Service page"""
+    return render_template('terms_of_service.html')
+
+@app.route('/cookie-policy')
+def cookie_policy():
+    """Cookie Policy page"""
+    return render_template('cookie_policy.html')
+
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding():
+    """Onboarding wizard for new users"""
+    from db import check_profile_completed, update_user_profile
+    from datetime import date
+    
+    user_id = session.get('user_id')
+    
+    # Check if profile already completed
+    if check_profile_completed(user_id):
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        address_line1 = request.form.get('address_line1', '').strip()
+        address_line2 = request.form.get('address_line2', '').strip()
+        city = request.form.get('city', '').strip()
+        state = request.form.get('state', '').strip()
+        zip_code = request.form.get('zip_code', '').strip()
+        date_of_birth = request.form.get('date_of_birth', '').strip()
+        ssn_last_4 = request.form.get('ssn_last_4', '').strip()
+        
+        # Validation
+        if not all([address_line1, city, state, zip_code, date_of_birth, ssn_last_4]):
+            flash('❌ Please fill in all required fields.', 'danger')
+            return render_template('onboarding.html', today=date.today().isoformat())
+        
+        if len(ssn_last_4) != 4 or not ssn_last_4.isdigit():
+            flash('❌ SSN last 4 must be exactly 4 digits.', 'danger')
+            return render_template('onboarding.html', today=date.today().isoformat())
+        
+        # Update profile
+        success, message = update_user_profile(
+            user_id=user_id,
+            address_line1=address_line1,
+            address_line2=address_line2 if address_line2 else None,
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            date_of_birth=date_of_birth,
+            ssn_last_4=ssn_last_4
+        )
+        
+        if success:
+            flash('✅ Profile completed! Welcome to Next Credit.', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash(f'❌ {message}', 'danger')
+            return render_template('onboarding.html', today=date.today().isoformat())
+    
+    return render_template('onboarding.html', today=date.today().isoformat())
+
 
 @app.route('/dashboard')
 @login_required
@@ -177,6 +258,11 @@ def index():
     if not user_id:
         flash('Session expired. Please log in again.', 'warning')
         return redirect(url_for('login'))
+    
+    # Check if user needs to complete onboarding
+    from db import check_profile_completed
+    if not check_profile_completed(user_id):
+        return redirect(url_for('onboarding'))
     
     # Get user-specific stats
     stats = get_user_stats(user_id)
@@ -252,9 +338,11 @@ def signup():
                 flash('❌ Passwords do not match.', 'danger')
                 return render_template('signup.html')
             
-            if len(password) < 6:
-                print(f"Validation failed: Password too short")
-                flash('❌ Password must be at least 6 characters.', 'danger')
+            # Validate password strength
+            password_valid, password_message = validate_password(password)
+            if not password_valid:
+                print(f"Validation failed: {password_message}")
+                flash(f'❌ {password_message}', 'danger')
                 return render_template('signup.html')
             
             # Create user
@@ -292,7 +380,7 @@ def signup():
             create_login_token(email, token, expires_at)
             
             # Send verification email
-            app_url = request.url_root.rstrip('/')
+            app_url = os.getenv('APP_URL', request.url_root.rstrip('/'))
             if send_verification_email(email, token, app_url):
                 flash(f'✅ Account created! Please check {email} to verify your email address.', 'success')
             else:
@@ -380,14 +468,22 @@ def verify_email():
     # Mark email as verified and enable API access
     verify_user_email(email)
     
-    # Get user for welcome email
+    # Get user for welcome email and auto-login
     user = get_user_by_email(email)
     if user:
         first_name = user.get('first_name', 'User')
         send_welcome_email(email, first_name)
+        
+        # Auto-login user after verification
+        session['user_id'] = user['id']
+        session['email'] = user['email']
+        session['username'] = user.get('username')
+        session['first_name'] = user.get('first_name')
+        session['last_name'] = user.get('last_name')
+        session['role'] = user.get('role', 'user')
     
-    flash('✅ Email verified! You now have full access to all features.', 'success')
-    return redirect(url_for('login'))
+    flash('✅ Email verified! Let\'s complete your profile.', 'success')
+    return redirect(url_for('onboarding'))
 
 @app.route('/resend-verification', methods=['POST'])
 def resend_verification():
@@ -418,7 +514,7 @@ def resend_verification():
     expires_at = datetime.utcnow() + timedelta(hours=24)
     create_login_token(email, token, expires_at)
     
-    app_url = request.url_root.rstrip('/')
+    app_url = os.getenv('APP_URL', request.url_root.rstrip('/'))
     send_verification_email(email, token, app_url)
     
     flash('✅ Verification email sent! Check your inbox.', 'success')
@@ -447,7 +543,7 @@ def forgot_password():
             expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
             create_login_token(email, token, expires_at)
             
-            app_url = request.url_root.rstrip('/')
+            app_url = os.getenv('APP_URL', request.url_root.rstrip('/'))
             send_password_reset_email(email, token, app_url)
         
         flash('✅ If that email exists, a password reset link has been sent.', 'info')
@@ -478,8 +574,10 @@ def reset_password():
         new_password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        if not new_password or len(new_password) < 6:
-            flash('❌ Password must be at least 6 characters.', 'danger')
+        # Validate password strength
+        password_valid, password_message = validate_password(new_password)
+        if not password_valid:
+            flash(f'❌ {password_message}', 'danger')
             return render_template('reset_password.html', token=token)
         
         if new_password != confirm_password:

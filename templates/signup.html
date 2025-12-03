@@ -61,11 +61,14 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
                                 <input type="password" class="form-control" id="password" name="password" 
-                                       placeholder="At least 6 characters" required minlength="6" autocomplete="new-password">
+                                       placeholder="Strong password" required minlength="8" autocomplete="new-password">
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="bi bi-eye" id="togglePasswordIcon"></i>
                                 </button>
                             </div>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle"></i> Min 8 characters with 1 letter, 1 number, and 1 special character
+                            </small>
                         </div>
                         
                         <div class="mb-3">
@@ -73,7 +76,7 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                                 <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                       placeholder="Re-enter password" required minlength="6" autocomplete="new-password">
+                                       placeholder="Re-enter password" required minlength="8" autocomplete="new-password">
                                 <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
                                     <i class="bi bi-eye" id="toggleConfirmPasswordIcon"></i>
                                 </button>
@@ -83,7 +86,7 @@
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="agree_tos" name="agree_tos" required>
                             <label class="form-check-label" for="agree_tos">
-                                <small>I agree to the <a href="#" target="_blank">Terms of Service</a> and <a href="#" target="_blank">Privacy Policy</a></small>
+                                <small>I agree to the <a href="{{ url_for('terms_of_service') }}" target="_blank">Terms of Service</a> and <a href="{{ url_for('privacy_policy') }}" target="_blank">Privacy Policy</a></small>
                             </label>
                         </div>
                         

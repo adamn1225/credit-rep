@@ -1,0 +1,194 @@
+{% extends "base_public.html" %}
+
+{% block title %}Cookie Policy - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h1 class="mb-4">Cookie Policy</h1>
+                    <p class="text-muted"><strong>Effective Date:</strong> December 3, 2025</p>
+                    
+                    <hr class="my-4">
+                    
+                    <section class="mb-5">
+                        <h2>1. What Are Cookies?</h2>
+                        <p>Cookies are small text files stored on your device (computer, phone, or tablet) when you visit a website. They help websites remember your preferences, login status, and usage patterns.</p>
+                        <p>Next Credit uses cookies to provide a secure, personalized experience and improve our service.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>2. Types of Cookies We Use</h2>
+                        
+                        <h3 class="h5 mt-4">2.1 Essential Cookies (Required)</h3>
+                        <p>These cookies are necessary for the platform to function and cannot be disabled:</p>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Cookie Name</th>
+                                    <th>Purpose</th>
+                                    <th>Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>session</code></td>
+                                    <td>Flask session cookie for user authentication and login state</td>
+                                    <td>30 days (persistent)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>tour_completed</code></td>
+                                    <td>Tracks whether you've completed the product tour</td>
+                                    <td>Permanent (localStorage)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>CSRF Token</code></td>
+                                    <td>Security token to prevent cross-site request forgery attacks</td>
+                                    <td>Session (deleted when you close browser)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 class="h5 mt-4">2.2 Functional Cookies (Optional)</h3>
+                        <p>These cookies enhance your experience but are not strictly necessary:</p>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Cookie Name</th>
+                                    <th>Purpose</th>
+                                    <th>Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>theme_preference</code></td>
+                                    <td>Remembers your light/dark mode preference (if implemented)</td>
+                                    <td>1 year</td>
+                                </tr>
+                                <tr>
+                                    <td><code>language</code></td>
+                                    <td>Remembers your language preference (if applicable)</td>
+                                    <td>1 year</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 class="h5 mt-4">2.3 Analytics Cookies (Optional - Currently Not Used)</h3>
+                        <p>We currently do NOT use third-party analytics cookies (Google Analytics, etc.). If we add analytics in the future, we will:</p>
+                        <ul>
+                            <li>Notify you and update this policy</li>
+                            <li>Provide an opt-out option</li>
+                            <li>Anonymize data where possible</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">2.4 Marketing Cookies (Not Used)</h3>
+                        <p>We do NOT use marketing or advertising cookies. We do not track you across websites or share cookie data with third-party advertisers.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>3. Third-Party Cookies</h2>
+                        <p>Next Credit uses the following third-party services that may set their own cookies:</p>
+                        
+                        <h3 class="h5 mt-4">3.1 Plaid (Banking Integration - Optional)</h3>
+                        <p>If you connect bank accounts via Plaid, Plaid may set cookies for authentication. See <a href="https://plaid.com/legal/" target="_blank">Plaid's Privacy Policy</a>.</p>
+                        
+                        <h3 class="h5 mt-4">3.2 OpenAI (AI Processing)</h3>
+                        <p>OpenAI processes dispute letters but does NOT set cookies on your device.</p>
+                        
+                        <h3 class="h5 mt-4">3.3 Lob (Certified Mail)</h3>
+                        <p>Lob handles mail delivery but does NOT set cookies on your device.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>4. How We Use Cookies</h2>
+                        <p>We use cookies for the following purposes:</p>
+                        <ul>
+                            <li><strong>Authentication:</strong> Keep you logged in across page visits</li>
+                            <li><strong>Security:</strong> Prevent unauthorized access and CSRF attacks</li>
+                            <li><strong>User Experience:</strong> Remember your preferences and settings</li>
+                            <li><strong>Session Management:</strong> Track your active session and prevent session hijacking</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>5. Managing Cookies</h2>
+                        
+                        <h3 class="h5 mt-4">5.1 Browser Settings</h3>
+                        <p>You can control cookies through your browser settings:</p>
+                        <ul>
+                            <li><strong>Chrome:</strong> Settings → Privacy and Security → Cookies and other site data</li>
+                            <li><strong>Firefox:</strong> Settings → Privacy & Security → Cookies and Site Data</li>
+                            <li><strong>Safari:</strong> Preferences → Privacy → Cookies and website data</li>
+                            <li><strong>Edge:</strong> Settings → Cookies and site permissions → Cookies and site data</li>
+                        </ul>
+                        <p class="text-warning"><strong>Warning:</strong> Blocking essential cookies will prevent you from logging in and using Next Credit.</p>
+                        
+                        <h3 class="h5 mt-4">5.2 Clearing Cookies</h3>
+                        <p>You can delete cookies at any time through your browser settings. Note that this will log you out and reset your preferences.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>6. Session Security</h2>
+                        <p>Our session cookies have the following security features:</p>
+                        <ul>
+                            <li><strong>HTTPS Only:</strong> Session cookies are only transmitted over encrypted connections (production)</li>
+                            <li><strong>HttpOnly Flag:</strong> Cookies cannot be accessed by JavaScript (prevents XSS attacks)</li>
+                            <li><strong>SameSite Protection:</strong> Cookies are restricted to same-site requests (prevents CSRF attacks)</li>
+                            <li><strong>30-Day Expiration:</strong> Sessions automatically expire after 30 days of inactivity</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>7. LocalStorage & SessionStorage</h2>
+                        <p>In addition to cookies, we use browser storage for non-sensitive data:</p>
+                        <ul>
+                            <li><strong>localStorage:</strong> Stores tour completion status (persists across sessions)</li>
+                            <li><strong>sessionStorage:</strong> Temporary data for current session only (cleared when you close the tab)</li>
+                        </ul>
+                        <p>This data is stored locally on your device and never transmitted to our servers unless explicitly needed.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>8. Do Not Track (DNT)</h2>
+                        <p>Some browsers offer a "Do Not Track" (DNT) signal. Next Credit respects DNT signals:</p>
+                        <ul>
+                            <li>We do NOT use third-party tracking or advertising cookies</li>
+                            <li>We do NOT share cookie data with advertisers or data brokers</li>
+                            <li>Your usage data is only used to improve our service (not sold to third parties)</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>9. Children's Privacy</h2>
+                        <p>Next Credit is not intended for users under 18. We do not knowingly collect cookies or data from children.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>10. Changes to This Policy</h2>
+                        <p>We may update this Cookie Policy as we add new features or comply with regulations. Changes will be posted on this page with an updated "Effective Date."</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>11. Contact Us</h2>
+                        <p>If you have questions about our use of cookies, contact us:</p>
+                        <ul class="list-unstyled">
+                            <li><strong>Email:</strong> <a href="mailto:noah@nextnoetics.com">noah@nextnoetics.com</a></li>
+                            <li><strong>Company:</strong> Next Noetics, LLC</li>
+                        </ul>
+                    </section>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('privacy_policy') }}" class="btn btn-outline-primary me-2">Privacy Policy</a>
+                        <a href="{{ url_for('terms_of_service') }}" class="btn btn-outline-primary me-2">Terms of Service</a>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary">Back to Login</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base_public.html" %}
+
+{% block title %}Privacy Policy - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h1 class="mb-4">Privacy Policy</h1>
+                    <p class="text-muted"><strong>Effective Date:</strong> December 3, 2025</p>
+                    
+                    <hr class="my-4">
+                    
+                    <section class="mb-5">
+                        <h2>1. Introduction</h2>
+                        <p>Welcome to Next Credit ("we," "our," or "us"). We are committed to protecting your privacy and personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our credit repair and dispute management platform.</p>
+                        <p>By using Next Credit, you agree to the collection and use of information in accordance with this policy.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>2. Information We Collect</h2>
+                        
+                        <h3 class="h5 mt-4">2.1 Personal Information</h3>
+                        <p>We collect the following personal information that you provide directly:</p>
+                        <ul>
+                            <li><strong>Account Information:</strong> First name, last name, email address, phone number, password (encrypted)</li>
+                            <li><strong>Identity Verification:</strong> Date of birth, Social Security Number (if provided for credit bureau disputes)</li>
+                            <li><strong>Contact Information:</strong> Mailing address, email preferences</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">2.2 Financial & Credit Information</h3>
+                        <ul>
+                            <li><strong>Credit Reports:</strong> Uploaded credit reports from Equifax, Experian, and TransUnion</li>
+                            <li><strong>Account Details:</strong> Creditor names, account numbers, balances, payment history</li>
+                            <li><strong>Dispute Information:</strong> Details about inaccurate or disputed items on your credit report</li>
+                            <li><strong>Banking Information:</strong> If you connect bank accounts via Plaid for financial monitoring (optional)</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">2.3 Technical Information</h3>
+                        <ul>
+                            <li><strong>Usage Data:</strong> Pages visited, features used, time spent on platform</li>
+                            <li><strong>Device Information:</strong> IP address, browser type, operating system</li>
+                            <li><strong>Cookies:</strong> Session cookies for authentication and preferences (see Cookie Policy)</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>3. How We Use Your Information</h2>
+                        <p>We use your information for the following purposes:</p>
+                        
+                        <h3 class="h5 mt-4">3.1 Credit Repair Services</h3>
+                        <ul>
+                            <li>Generate AI-powered dispute letters using OpenAI GPT-4</li>
+                            <li>Send certified mail to credit bureaus and creditors via Lob API</li>
+                            <li>Track dispute progress and response deadlines</li>
+                            <li>Analyze credit reports for inaccuracies and errors</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">3.2 Account Management</h3>
+                        <ul>
+                            <li>Create and maintain your user account</li>
+                            <li>Verify your email address and authenticate access</li>
+                            <li>Send important notifications about your disputes and account</li>
+                            <li>Provide customer support and respond to inquiries</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">3.3 Platform Improvement</h3>
+                        <ul>
+                            <li>Analyze usage patterns to improve features and user experience</li>
+                            <li>Conduct research and development for new credit repair tools</li>
+                            <li>Prevent fraud, abuse, and security threats</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">3.4 Marketing (Optional)</h3>
+                        <ul>
+                            <li>Send credit repair tips, educational content, and product updates (only if you opt-in)</li>
+                            <li>You can unsubscribe from marketing emails at any time</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>4. How We Share Your Information</h2>
+                        <p>We do NOT sell your personal information. We only share your data in the following limited circumstances:</p>
+                        
+                        <h3 class="h5 mt-4">4.1 Service Providers</h3>
+                        <ul>
+                            <li><strong>OpenAI:</strong> AI-powered letter generation (credit data is anonymized when possible)</li>
+                            <li><strong>Lob:</strong> Certified mail delivery to credit bureaus and creditors</li>
+                            <li><strong>Plaid:</strong> Bank account connectivity (optional, only with your authorization)</li>
+                            <li><strong>Railway/PostgreSQL:</strong> Secure database hosting and infrastructure</li>
+                            <li><strong>Zoho Mail:</strong> Transactional emails (verification, password reset)</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">4.2 Legal Compliance</h3>
+                        <ul>
+                            <li>To comply with laws, regulations, legal processes, or government requests</li>
+                            <li>To enforce our Terms of Service and protect our legal rights</li>
+                            <li>To prevent fraud, security issues, or protect user safety</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">4.3 Business Transfers</h3>
+                        <p>If Next Credit is acquired or merged with another company, your information may be transferred to the new owner (you will be notified).</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>5. Data Security</h2>
+                        <p>We implement industry-standard security measures to protect your information:</p>
+                        <ul>
+                            <li><strong>Encryption:</strong> All data transmitted using TLS/SSL encryption (HTTPS)</li>
+                            <li><strong>Password Security:</strong> Passwords are hashed using bcrypt (never stored in plain text)</li>
+                            <li><strong>Database Security:</strong> PostgreSQL with access controls and encrypted backups</li>
+                            <li><strong>API Security:</strong> API keys are stored securely in environment variables</li>
+                            <li><strong>Email Verification:</strong> Required to prevent unauthorized API usage</li>
+                        </ul>
+                        <p class="text-warning"><strong>Important:</strong> No method of transmission or storage is 100% secure. While we strive to protect your data, we cannot guarantee absolute security.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>6. Your Privacy Rights</h2>
+                        
+                        <h3 class="h5 mt-4">6.1 Access & Correction</h3>
+                        <p>You can access and update your personal information anytime in your account Settings.</p>
+                        
+                        <h3 class="h5 mt-4">6.2 Data Deletion</h3>
+                        <p>You can request deletion of your account and personal data by contacting us at <a href="mailto:noah@nextnoetics.com">noah@nextnoetics.com</a>. We will delete your data within 30 days, except where retention is required by law.</p>
+                        
+                        <h3 class="h5 mt-4">6.3 Marketing Opt-Out</h3>
+                        <p>You can unsubscribe from marketing emails by clicking "Unsubscribe" in any email or updating your preferences in Settings.</p>
+                        
+                        <h3 class="h5 mt-4">6.4 California Privacy Rights (CCPA)</h3>
+                        <p>California residents have additional rights under the California Consumer Privacy Act:</p>
+                        <ul>
+                            <li>Right to know what personal information is collected</li>
+                            <li>Right to delete personal information</li>
+                            <li>Right to opt-out of data sales (we don't sell data)</li>
+                            <li>Right to non-discrimination for exercising privacy rights</li>
+                        </ul>
+                        
+                        <h3 class="h5 mt-4">6.5 GDPR Rights (European Users)</h3>
+                        <p>If you are in the EU/EEA, you have rights under GDPR including:</p>
+                        <ul>
+                            <li>Right to access, rectify, and erase your data</li>
+                            <li>Right to data portability</li>
+                            <li>Right to restrict or object to processing</li>
+                            <li>Right to withdraw consent</li>
+                        </ul>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>7. Data Retention</h2>
+                        <p>We retain your information for as long as your account is active or as needed to provide services. After account deletion, we may retain certain data for legal compliance, fraud prevention, or dispute resolution for up to 7 years (as required by financial regulations).</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>8. Children's Privacy</h2>
+                        <p>Next Credit is not intended for users under 18 years old. We do not knowingly collect information from children. If you believe we have collected data from a minor, please contact us immediately.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>9. Third-Party Links</h2>
+                        <p>Our platform may contain links to third-party websites (e.g., credit bureaus). We are not responsible for the privacy practices of these external sites. Please review their privacy policies.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>10. Changes to This Policy</h2>
+                        <p>We may update this Privacy Policy periodically. Changes will be posted on this page with an updated "Effective Date." Continued use of Next Credit after changes constitutes acceptance of the updated policy.</p>
+                    </section>
+                    
+                    <section class="mb-5">
+                        <h2>11. Contact Us</h2>
+                        <p>If you have questions about this Privacy Policy or want to exercise your privacy rights, contact us:</p>
+                        <ul class="list-unstyled">
+                            <li><strong>Email:</strong> <a href="mailto:noah@nextnoetics.com">noah@nextnoetics.com</a></li>
+                            <li><strong>Company:</strong> Next Noetics, LLC</li>
+                        </ul>
+                    </section>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('terms_of_service') }}" class="btn btn-outline-primary me-2">Terms of Service</a>
+                        <a href="{{ url_for('cookie_policy') }}" class="btn btn-outline-primary me-2">Cookie Policy</a>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary">Back to Login</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

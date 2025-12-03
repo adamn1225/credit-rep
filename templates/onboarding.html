@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Your Profile - Next Credit{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Progress Indicator -->
+            <div class="mb-5">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-primary fw-bold">Step 1 of 2</span>
+                    <span class="text-muted">Almost there!</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 50%"></div>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-person-badge text-primary" style="font-size: 3rem;"></i>
+                        <h2 class="mt-3">Complete Your Profile</h2>
+                        <p class="text-muted">This information is required to generate dispute letters</p>
+                    </div>
+
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        <strong>Why do we need this?</strong><br>
+                        <small>Dispute letters to credit bureaus must include your address, date of birth, and last 4 digits of SSN for identity verification. This information is encrypted and only used on dispute letters you generate.</small>
+                    </div>
+
+                    <form method="POST" id="onboardingForm">
+                        <!-- Address Information -->
+                        <h5 class="mb-3">
+                            <i class="bi bi-house-door"></i> Mailing Address
+                        </h5>
+                        <p class="text-muted small mb-3">This will appear on your dispute letters</p>
+
+                        <div class="mb-3">
+                            <label for="address_line1" class="form-label">Street Address *</label>
+                            <input type="text" class="form-control" id="address_line1" name="address_line1" 
+                                   placeholder="123 Main Street" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="address_line2" class="form-label">Apt, Suite, Unit (optional)</label>
+                            <input type="text" class="form-control" id="address_line2" name="address_line2" 
+                                   placeholder="Apt 4B">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="city" class="form-label">City *</label>
+                                <input type="text" class="form-control" id="city" name="city" 
+                                       placeholder="Tampa" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="state" class="form-label">State *</label>
+                                <select class="form-select" id="state" name="state" required>
+                                    <option value="">Select...</option>
+                                    <option value="AL">AL</option>
+                                    <option value="AK">AK</option>
+                                    <option value="AZ">AZ</option>
+                                    <option value="AR">AR</option>
+                                    <option value="CA">CA</option>
+                                    <option value="CO">CO</option>
+                                    <option value="CT">CT</option>
+                                    <option value="DE">DE</option>
+                                    <option value="FL">FL</option>
+                                    <option value="GA">GA</option>
+                                    <option value="HI">HI</option>
+                                    <option value="ID">ID</option>
+                                    <option value="IL">IL</option>
+                                    <option value="IN">IN</option>
+                                    <option value="IA">IA</option>
+                                    <option value="KS">KS</option>
+                                    <option value="KY">KY</option>
+                                    <option value="LA">LA</option>
+                                    <option value="ME">ME</option>
+                                    <option value="MD">MD</option>
+                                    <option value="MA">MA</option>
+                                    <option value="MI">MI</option>
+                                    <option value="MN">MN</option>
+                                    <option value="MS">MS</option>
+                                    <option value="MO">MO</option>
+                                    <option value="MT">MT</option>
+                                    <option value="NE">NE</option>
+                                    <option value="NV">NV</option>
+                                    <option value="NH">NH</option>
+                                    <option value="NJ">NJ</option>
+                                    <option value="NM">NM</option>
+                                    <option value="NY">NY</option>
+                                    <option value="NC">NC</option>
+                                    <option value="ND">ND</option>
+                                    <option value="OH">OH</option>
+                                    <option value="OK">OK</option>
+                                    <option value="OR">OR</option>
+                                    <option value="PA">PA</option>
+                                    <option value="RI">RI</option>
+                                    <option value="SC">SC</option>
+                                    <option value="SD">SD</option>
+                                    <option value="TN">TN</option>
+                                    <option value="TX">TX</option>
+                                    <option value="UT">UT</option>
+                                    <option value="VT">VT</option>
+                                    <option value="VA">VA</option>
+                                    <option value="WA">WA</option>
+                                    <option value="WV">WV</option>
+                                    <option value="WI">WI</option>
+                                    <option value="WY">WY</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="zip_code" class="form-label">ZIP Code *</label>
+                                <input type="text" class="form-control" id="zip_code" name="zip_code" 
+                                       placeholder="33602" maxlength="10" required>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Identity Verification -->
+                        <h5 class="mb-3">
+                            <i class="bi bi-shield-check"></i> Identity Verification
+                        </h5>
+                        <p class="text-muted small mb-3">Required by credit bureaus to process disputes</p>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="date_of_birth" class="form-label">Date of Birth *</label>
+                                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                       max="{{ today }}" required>
+                                <small class="form-text text-muted">Format: MM/DD/YYYY</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ssn_last_4" class="form-label">Last 4 Digits of SSN *</label>
+                                <input type="text" class="form-control" id="ssn_last_4" name="ssn_last_4" 
+                                       placeholder="1234" maxlength="4" pattern="[0-9]{4}" required>
+                                <small class="form-text text-muted">Only the last 4 digits are needed</small>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning mb-4">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>Important:</strong> Make sure this information matches your credit reports exactly. Mismatched information may cause disputes to be rejected.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Save & Continue
+                            </button>
+                            <a href="{{ url_for('logout') }}" class="btn btn-link text-muted">
+                                I'll complete this later
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Security Note -->
+            <div class="text-center mt-4">
+                <p class="text-muted small">
+                    <i class="bi bi-lock-fill"></i> 
+                    All information is encrypted and stored securely
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ZIP code formatting
+document.getElementById('zip_code').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 5) {
+        value = value.slice(0, 5) + '-' + value.slice(5, 9);
+    }
+    e.target.value = value;
+});
+
+// SSN last 4 validation
+document.getElementById('ssn_last_4').addEventListener('input', function(e) {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+});
+
+// Form validation
+document.getElementById('onboardingForm').addEventListener('submit', function(e) {
+    const ssn = document.getElementById('ssn_last_4').value;
+    if (ssn.length !== 4 || !/^[0-9]{4}$/.test(ssn)) {
+        e.preventDefault();
+        alert('Please enter exactly 4 digits for SSN last 4');
+        return false;
+    }
+});
+</script>
+{% endblock %}

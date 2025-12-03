@@ -45,7 +45,9 @@ def init_db():
             zip_code TEXT,
             country TEXT DEFAULT 'US',
             
-            -- Profile fields
+            -- Profile fields (required for dispute letters)
+            date_of_birth DATE,
+            ssn_last_4 TEXT,
             occupation TEXT,
             annual_income DECIMAL(12,2),
             monthly_income DECIMAL(12,2),
@@ -61,7 +63,8 @@ def init_db():
             is_active INTEGER DEFAULT 1,
             email_verified BOOLEAN DEFAULT FALSE,
             phone_verified BOOLEAN DEFAULT FALSE,
-            api_access_enabled BOOLEAN DEFAULT FALSE
+            api_access_enabled BOOLEAN DEFAULT FALSE,
+            profile_completed BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -1138,3 +1141,49 @@ def create_user_with_email(email, password, first_name=None, last_name=None, pho
             conn.rollback()
             conn.close()
         return False, f"Database error: {str(e)}"
+
+def update_user_profile(user_id, address_line1, city, state, zip_code, date_of_birth, ssn_last_4, address_line2=None):
+    """Update user profile with required information for dispute letters"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("""
+            UPDATE users 
+            SET address_line1 = %s,
+                address_line2 = %s,
+                city = %s,
+                state = %s,
+                zip_code = %s,
+                date_of_birth = %s,
+                ssn_last_4 = %s,
+                profile_completed = TRUE
+            WHERE id = %s
+        """, (address_line1, address_line2, city, state, zip_code, date_of_birth, ssn_last_4, user_id))
+        
+        conn.commit()
+        conn.close()
+        return True, "Profile updated successfully"
+    
+    except Exception as e:
+        print(f"[DB] ❌ Error updating profile: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+            conn.close()
+        return False, f"Database error: {str(e)}"
+
+def check_profile_completed(user_id):
+    """Check if user has completed their profile"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute(
+        "SELECT profile_completed FROM users WHERE id = %s",
+        (user_id,)
+    )
+    result = c.fetchone()
+    conn.close()
+    
+    if result:
+        return result['profile_completed'] if isinstance(result, dict) else result[0]
+    return False
