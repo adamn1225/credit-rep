@@ -13,8 +13,10 @@ if DATABASE_URL.startswith('postgres://'):
 
 def get_db_connection():
     """Get database connection (PostgreSQL)"""
-    conn = psycopg2.connect(DATABASE_URL)
-    conn.cursor_factory = RealDictCursor
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=RealDictCursor
+    )
     return conn
 
 def init_db():
