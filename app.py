@@ -58,7 +58,7 @@ def login_required(f):
     """Decorator to require login"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'username' not in session:
+        if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -68,7 +68,7 @@ def admin_required(f):
     """Decorator to require admin role"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'username' not in session:
+        if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('login'))
         if session.get('role') != 'admin':
@@ -289,8 +289,10 @@ def login():
             session.permanent = True
             session['email'] = email
             session['user_id'] = user['id']
-            session['role'] = user['role']
-            session['username'] = user['username']
+            session['role'] = user.get('role', 'user')
+            session['username'] = user.get('username') or email.split('@')[0]
+            session['first_name'] = user.get('first_name', '')
+            session['last_name'] = user.get('last_name', '')
             
             name = user.get('first_name') or email.split('@')[0]
             flash(f'✅ Welcome back, {name}!', 'success')
