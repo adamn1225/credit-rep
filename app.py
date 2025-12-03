@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 from db import (
-    init_db, verify_user, update_password, get_user, create_user,
+    verify_user, update_password, get_user, create_user,
     get_user_disputes, get_user_stats, log_dispute,
     get_user_accounts, add_user_account, update_account_status, list_users,
     add_document, get_user_documents, get_document_by_id, delete_document,
@@ -40,6 +40,16 @@ if os.getenv('FLASK_ENV') == 'production':
     app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
     app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JavaScript access
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+
+# Initialize database on startup (for gunicorn/production)
+try:
+    from db import init_db
+    init_db()
+    print("✅ Database tables initialized", flush=True)
+except Exception as e:
+    print(f"⚠️  Database init error: {str(e)}", flush=True)
+    import traceback
+    traceback.print_exc()
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
