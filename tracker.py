@@ -1,26 +1,26 @@
 import lob
 import os
-import sqlite3
 from dotenv import load_dotenv
+from db import get_db_connection
 
 load_dotenv()
 lob.api_key = os.getenv("LOB_API_KEY")
 
-DB_PATH = "disputes.db"
-
 def fetch_pending_disputes():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id, tracking_id, description FROM disputes WHERE status IN ('sent', 'in_transit', 'queued')")
-    rows = c.fetchall()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, tracking_id, description FROM disputes WHERE status IN ('sent', 'in_transit', 'queued')")
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return rows
 
 def update_status(dispute_id, new_status):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE disputes SET status = ? WHERE id = ?", (new_status, dispute_id))
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE disputes SET status = %s WHERE id = %s", (new_status, dispute_id))
     conn.commit()
+    cur.close()
     conn.close()
 
 def check_lob_status():

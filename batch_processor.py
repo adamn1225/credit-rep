@@ -1,42 +1,46 @@
 import sys
-import sqlite3
 from pathlib import Path
 from generator import render_letter, generate_pdf
 from mailer import send_letter
-from db import init_db, DB_PATH
+from db import init_db, get_db_connection
 from tracker import check_lob_status
 
 def get_pending_disputes():
     """Get all pending disputes from database across all users"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    disputes = conn.execute("""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
         SELECT d.*, ua.creditor_name, ua.account_type, ua.balance, ua.notes
         FROM disputes d
         LEFT JOIN user_accounts ua ON d.account_id = ua.id
         WHERE d.status = 'pending'
         ORDER BY d.sent_date
-    """).fetchall()
+    """)
+    disputes = cur.fetchall()
+    cur.close()
     conn.close()
     return disputes
 
 def update_dispute_status(dispute_id, tracking_id, status):
     """Update dispute with tracking ID and status"""
-    conn = sqlite3.connect(DB_PATH)
     from datetime import datetime
-    conn.execute("""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
         UPDATE disputes 
-        SET tracking_id = ?, status = ?, sent_date = ?
-        WHERE id = ?
+        SET tracking_id = %s, status = %s, sent_date = %s
+        WHERE id = %s
     """, (tracking_id, status, datetime.utcnow().isoformat(), dispute_id))
     
     # Log to history
-    conn.execute("""
+    cur.execute("""
         INSERT INTO dispute_history (dispute_id, action, new_status, notes)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
     """, (dispute_id, 'sent', status, f'Letter sent via Lob (tracking: {tracking_id})'))
     
     conn.commit()
+    cur.close()
     conn.close()
 
 def run_batch():
