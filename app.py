@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 import csv
@@ -18,13 +17,9 @@ from db import (
     get_user_accounts, add_user_account, update_account_status, list_users,
     add_document, get_user_documents, get_document_by_id, delete_document,
     update_document_analysis, get_disputes_awaiting_response,
-    save_plaid_item, get_plaid_items, get_plaid_item_by_id, update_plaid_item_cursor,
-    save_plaid_account, get_plaid_accounts, save_plaid_transaction,
-    search_plaid_transactions, delete_plaid_item,
     get_user_by_email, create_user_with_email, update_last_login_by_email
 )
 from document_analyzer import analyze_document
-import plaid_integration
 import hashlib
 
 load_dotenv()
@@ -52,9 +47,6 @@ except Exception as e:
     traceback.print_exc()
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
-
-DB_PATH = "disputes.db"
-CSV_PATH = "data/accounts.csv"
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -91,12 +83,6 @@ def inject_user():
         'role': session.get('role')
     }
 
-def get_db_connection():
-    """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def load_disputes():
     """Load disputes for current user"""
     user_id = session.get('user_id')
@@ -109,23 +95,15 @@ def load_csv_queue():
     try:
         user_id = session.get('user_id')
         if not user_id:
-            return pd.DataFrame()
+            return []
         
-        conn = get_db_connection()
-        # Get pending disputes from database
-        query = """
-            SELECT d.id, d.account_number, d.bureau, d.creditor_name, 
-                   d.description as reason, d.status, d.sent_date
-            FROM disputes d
-            WHERE d.user_id = ? AND d.status = 'pending'
-            ORDER BY d.sent_date DESC
-        """
-        df = pd.read_sql_query(query, conn, params=(user_id,))
-        conn.close()
-        return df
+        # Get pending disputes from database using db.py functions
+        disputes = get_user_disputes(user_id)
+        pending = [d for d in disputes if d.get('status') == 'pending']
+        return pending
     except Exception as e:
         print(f"Error loading queue: {e}")
-        return pd.DataFrame()
+        return []
 
 def get_status_color(status):
     """Return color for status badge"""
@@ -147,15 +125,7 @@ def get_pdf_path(account_number, bureau):
     pdf_path = base_dir / bureau_dir / f"{account_number}.pdf"
     return pdf_path if pdf_path.exists() else None
 
-def append_to_csv(data):
-    """Append dispute to CSV queue"""
-    file_exists = Path(CSV_PATH).exists()
-    with open(CSV_PATH, "a", newline="") as csvfile:
-        fieldnames = ["bureau", "creditor_name", "account_number", "reason", "status", "date_added"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(data)
+# CSV functionality removed - all data stored in PostgreSQL via db.py
 
 # --- Routes ---
 @app.route('/')
@@ -592,13 +562,9 @@ def preview_letter(account_id):
     """Preview AI-generated letter for an account"""
     user_id = session.get('user_id')
     
-    # Get account details
-    conn = get_db_connection()
-    account = conn.execute(
-        'SELECT * FROM user_accounts WHERE id = ? AND user_id = ?',
-        (account_id, user_id)
-    ).fetchone()
-    conn.close()
+    # Get account details from PostgreSQL
+    accounts = get_user_accounts(user_id)
+    account = next((acc for acc in accounts if acc['id'] == int(account_id)), None)
     
     if not account:
         flash('❌ Account not found', 'danger')
@@ -625,17 +591,9 @@ def generate_batch():
     from generator import render_letter, generate_pdf
     
     user_id = session.get('user_id')
-    conn = get_db_connection()
     
-    # Get pending disputes
-    disputes = conn.execute("""
-        SELECT d.*, ua.creditor_name, ua.account_type, ua.balance, ua.notes
-        FROM disputes d
-        LEFT JOIN user_accounts ua ON d.account_id = ua.id
-        WHERE d.user_id = ? AND d.status = 'pending'
-    """, (user_id,)).fetchall()
-    
-    conn.close()
+    # Get pending disputes from PostgreSQL
+    disputes = get_user_disputes(user_id, status='pending')
     
     if not disputes:
         flash('⚠️ No pending disputes to generate.', 'warning')
@@ -677,17 +635,9 @@ def generate_batch():
 def review_batch():
     """Review generated PDFs before sending to Lob"""
     user_id = session.get('user_id')
-    conn = get_db_connection()
     
-    # Get pending disputes with PDF paths
-    disputes = conn.execute("""
-        SELECT d.*, ua.creditor_name
-        FROM disputes d
-        LEFT JOIN user_accounts ua ON d.account_id = ua.id
-        WHERE d.user_id = ? AND d.status = 'pending'
-    """, (user_id,)).fetchall()
-    
-    conn.close()
+    # Get pending disputes with PDF paths from PostgreSQL
+    disputes = get_user_disputes(user_id, status='pending')
     
     # Check which PDFs exist
     disputes_with_pdfs = []
@@ -789,9 +739,9 @@ def settings():
 @login_required
 def download_pdf(dispute_id):
     """Download PDF for a dispute"""
-    conn = get_db_connection()
-    dispute = conn.execute('SELECT * FROM disputes WHERE id = ?', (dispute_id,)).fetchone()
-    conn.close()
+    user_id = session.get('user_id')
+    disputes = get_user_disputes(user_id)
+    dispute = next((d for d in disputes if d['id'] == dispute_id), None)
     
     if dispute:
         pdf_path = get_pdf_path(dispute['account_number'], dispute['bureau'])
@@ -823,17 +773,19 @@ def admin_users():
                 return redirect(url_for('admin_users'))
             
             if username and password and email:
-                success, message = create_user(username, password, role)
+                # Use create_user_with_email which handles all fields properly
+                success, message = create_user_with_email(
+                    email=email,
+                    password=password,
+                    first_name=full_name.split()[0] if full_name else '',
+                    last_name=' '.join(full_name.split()[1:]) if full_name and len(full_name.split()) > 1 else '',
+                    phone='',
+                    agree_tos=True,
+                    marketing_emails=False,
+                    role=role
+                )
                 if success:
-                    # Update additional fields
-                    conn = get_db_connection()
-                    conn.execute(
-                        "UPDATE users SET email = ?, full_name = ? WHERE username = ?",
-                        (email, full_name, username)
-                    )
-                    conn.commit()
-                    conn.close()
-                    flash(f'✅ User "{username}" created successfully!', 'success')
+                    flash(f'✅ User "{email}" created successfully!', 'success')
                 else:
                     flash(f'❌ {message}', 'danger')
             else:
@@ -850,12 +802,15 @@ def admin_users():
                 flash('❌ You cannot deactivate your own account!', 'danger')
                 return redirect(url_for('admin_users'))
             
+            from db import get_db_connection
             conn = get_db_connection()
-            conn.execute(
-                "UPDATE users SET is_active = ? WHERE id = ?",
-                (1 if is_active else 0, user_id)
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET is_active = %s WHERE id = %s",
+                (is_active, user_id)
             )
             conn.commit()
+            cursor.close()
             conn.close()
             
             status = 'activated' if is_active else 'deactivated'
@@ -870,13 +825,17 @@ def admin_users():
                 flash('❌ You cannot delete your own account!', 'danger')
                 return redirect(url_for('admin_users'))
             
+            from db import get_db_connection
             conn = get_db_connection()
-            # Get username before deleting
-            user = conn.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+            cursor = conn.cursor()
+            # Get email before deleting
+            cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
             if user:
-                conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
                 conn.commit()
-                flash(f'✅ User "{user["username"]}" deleted successfully!', 'success')
+                flash(f'✅ User "{user["email"]}" deleted successfully!', 'success')
+            cursor.close()
             conn.close()
             
             return redirect(url_for('admin_users'))
@@ -1089,29 +1048,28 @@ def api_pending_responses():
     if api_key != os.getenv('FLASK_SECRET_KEY'):
         return jsonify({'error': 'Unauthorized'}), 401
     
-    # Get all users with pending responses
+    # Get all disputes awaiting responses using PostgreSQL
     from db import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Query for overdue disputes without responses
+    # Query for overdue disputes without responses (PostgreSQL syntax)
     query = """
         SELECT 
             u.id as user_id,
-            u.username,
             u.email,
-            u.full_name,
+            u.first_name || ' ' || u.last_name as full_name,
             d.id as dispute_id,
             d.bureau,
             d.creditor_name,
             d.account_number,
             d.sent_date,
             d.expected_response_date,
-            julianday('now') - julianday(d.sent_date) as days_waiting
+            EXTRACT(DAY FROM (NOW() - d.sent_date)) as days_waiting
         FROM disputes d
         JOIN users u ON d.user_id = u.id
         WHERE d.status IN ('sent', 'delivered')
-        AND d.expected_response_date < datetime('now')
+        AND d.expected_response_date < NOW()
         AND NOT EXISTS (
             SELECT 1 FROM documents doc
             WHERE doc.dispute_id = d.id
@@ -1120,14 +1078,10 @@ def api_pending_responses():
         ORDER BY d.expected_response_date ASC
     """
     
-    if hasattr(conn, 'row_factory'):  # SQLite
-        cursor.execute(query)
-        results = [dict(row) for row in cursor.fetchall()]
-    else:  # PostgreSQL
-        cursor.execute(query)
-        columns = [desc[0] for desc in cursor.description]
-        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    cursor.execute(query)
+    results = cursor.fetchall()  # Returns list of dicts with RealDictCursor
     
+    cursor.close()
     conn.close()
     
     return jsonify({
@@ -1143,7 +1097,7 @@ def api_send_reminder():
     data = request.json
     dispute_id = data.get('dispute_id')
     
-    # Get dispute and user info
+    # Get dispute and user info using PostgreSQL
     from db import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1151,29 +1105,21 @@ def api_send_reminder():
     query = """
         SELECT 
             u.email,
-            u.full_name,
+            u.first_name || ' ' || u.last_name as full_name,
             d.bureau,
             d.creditor_name,
             d.account_number,
             d.sent_date,
-            julianday('now') - julianday(d.sent_date) as days_waiting
+            EXTRACT(DAY FROM (NOW() - d.sent_date)) as days_waiting
         FROM disputes d
         JOIN users u ON d.user_id = u.id
-        WHERE d.id = ? AND d.user_id = ?
+        WHERE d.id = %s AND d.user_id = %s
     """
     
-    if hasattr(conn, 'row_factory'):  # SQLite
-        cursor.execute(query, (dispute_id, user_id))
-        result = cursor.fetchone()
-    else:  # PostgreSQL
-        cursor.execute(query, (dispute_id, user_id))
-        row = cursor.fetchone()
-        if row:
-            columns = [desc[0] for desc in cursor.description]
-            result = dict(zip(columns, row))
-        else:
-            result = None
+    cursor.execute(query, (dispute_id, user_id))
+    result = cursor.fetchone()  # Returns dict with RealDictCursor
     
+    cursor.close()
     conn.close()
     
     if not result:
@@ -1189,13 +1135,13 @@ def api_send_reminder():
             n8n_url,
             json={
                 'type': 'manual_reminder',
-                'user_email': result['email'] if isinstance(result, dict) else result[0],
-                'user_name': result['full_name'] if isinstance(result, dict) else result[1],
-                'bureau': result['bureau'] if isinstance(result, dict) else result[2],
-                'creditor': result['creditor_name'] if isinstance(result, dict) else result[3],
-                'account_number': result['account_number'] if isinstance(result, dict) else result[4],
-                'sent_date': result['sent_date'] if isinstance(result, dict) else result[5],
-                'days_waiting': int(result['days_waiting'] if isinstance(result, dict) else result[6]),
+                'user_email': result['email'],
+                'user_name': result['full_name'],
+                'bureau': result['bureau'],
+                'creditor': result['creditor_name'],
+                'account_number': result['account_number'],
+                'sent_date': result['sent_date'].isoformat() if hasattr(result['sent_date'], 'isoformat') else str(result['sent_date']),
+                'days_waiting': int(result['days_waiting']),
                 'dashboard_url': url_for('index', _external=True)
             },
             timeout=10
@@ -1211,207 +1157,11 @@ def api_send_reminder():
 
 # --- Plaid Integration Routes ---
 
-@app.route('/connect-bank')
-@login_required
-def connect_bank():
-    """Plaid Link connection page"""
-    user_id = session.get('user_id')
-    username = session.get('username')
-    
-    # Get existing Plaid connections
-    plaid_items = get_plaid_items(user_id)
-    
-    return render_template('connect_bank.html',
-                         plaid_items=plaid_items,
-                         username=username)
 
-@app.route('/api/plaid/create-link-token', methods=['POST'])
-@login_required
-def create_plaid_link_token():
-    """Create Plaid Link token for frontend"""
-    try:
-        user_id = session.get('user_id')
-        username = session.get('username')
-        
-        # Create link token (without redirect_uri for simpler setup)
-        link_token = plaid_integration.create_link_token(
-            user_id=user_id,
-            username=username
-        )
-        
-        return jsonify({'link_token': link_token})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/api/plaid/exchange-token', methods=['POST'])
-@login_required
-def exchange_plaid_token():
-    """Exchange public token for access token and sync accounts"""
-    try:
-        user_id = session.get('user_id')
-        data = request.get_json()
-        public_token = data.get('public_token')
-        
-        if not public_token:
-            return jsonify({'error': 'Missing public_token'}), 400
-        
-        # Exchange token
-        token_data = plaid_integration.exchange_public_token(public_token)
-        
-        # Save to database
-        plaid_item_id = save_plaid_item(
-            user_id=user_id,
-            item_id=token_data['item_id'],
-            access_token=token_data['access_token']
-        )
-        
-        # Fetch and save accounts
-        accounts_data = plaid_integration.get_accounts(token_data['access_token'])
-        
-        for account in accounts_data['accounts']:
-            save_plaid_account(user_id, plaid_item_id, account)
-        
-        # Start initial transaction sync (background task would be better)
-        try:
-            sync_result = plaid_integration.sync_transactions(token_data['access_token'])
-            
-            # Save transactions
-            for txn in sync_result['transactions']:
-                save_plaid_transaction(user_id, txn['plaid_account_id'], txn)
-            
-            # Update cursor
-            update_plaid_item_cursor(plaid_item_id, sync_result['cursor'])
-            
-        except Exception as sync_error:
-            print(f"Transaction sync error: {sync_error}")
-            # Continue even if sync fails
-        
-        return jsonify({
-            'success': True,
-            'accounts_imported': len(accounts_data['accounts'])
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/api/plaid/sync-accounts/<int:plaid_item_id>', methods=['POST'])
-@login_required
-def sync_plaid_accounts(plaid_item_id):
-    """Manually sync Plaid accounts and transactions"""
-    try:
-        user_id = session.get('user_id')
-        
-        # Get Plaid item
-        plaid_item = get_plaid_item_by_id(plaid_item_id, user_id)
-        if not plaid_item:
-            return jsonify({'error': 'Plaid item not found'}), 404
-        
-        access_token = plaid_item['access_token']
-        
-        # Sync accounts
-        accounts_data = plaid_integration.get_accounts(access_token)
-        for account in accounts_data['accounts']:
-            save_plaid_account(user_id, plaid_item_id, account)
-        
-        # Sync transactions
-        cursor = plaid_item.get('cursor')
-        sync_result = plaid_integration.sync_transactions(access_token, cursor=cursor)
-        
-        txn_count = 0
-        for txn in sync_result['transactions']:
-            save_plaid_transaction(user_id, txn['plaid_account_id'], txn)
-            txn_count += 1
-        
-        # Update cursor
-        update_plaid_item_cursor(plaid_item_id, sync_result['cursor'])
-        
-        return jsonify({
-            'success': True,
-            'accounts_synced': len(accounts_data['accounts']),
-            'transactions_synced': txn_count
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/api/plaid/disconnect/<int:plaid_item_id>', methods=['POST'])
-@login_required
-def disconnect_plaid_item(plaid_item_id):
-    """Disconnect a Plaid bank connection"""
-    try:
-        user_id = session.get('user_id')
-        delete_plaid_item(plaid_item_id, user_id)
         
-        return jsonify({'success': True})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/payment-proof/<int:account_id>')
-@login_required
-def payment_proof(account_id):
-    """Search for payment proof transactions for an account"""
-    user_id = session.get('user_id')
-    
-    # Get account details
-    conn = get_db_connection()
-    account = conn.execute(
-        'SELECT * FROM user_accounts WHERE id = ? AND user_id = ?',
-        (account_id, user_id)
-    ).fetchone()
-    conn.close()
-    
-    if not account:
-        flash('❌ Account not found', 'danger')
-        return redirect(url_for('accounts'))
-    
-    # Get Plaid items
-    plaid_items = get_plaid_items(user_id)
-    
-    if not plaid_items:
-        flash('⚠️ No bank accounts connected. Connect a bank to search for payment proof.', 'warning')
-        return redirect(url_for('connect_bank'))
-    
-    # Search transactions across all Plaid items
-    all_transactions = []
-    creditor_name = account['creditor_name']
-    
-    for plaid_item in plaid_items:
-        try:
-            transactions = plaid_integration.search_payment_transactions(
-                access_token=plaid_item['access_token'],
-                creditor_name=creditor_name
-            )
-            all_transactions.extend(transactions)
-        except Exception as e:
-            print(f"Error searching transactions: {e}")
-            continue
-    
-    # Generate proof data
-    if all_transactions:
-        proof_data = plaid_integration.generate_payment_proof_data(all_transactions, creditor_name)
-    else:
-        proof_data = None
-    
-    return render_template('payment_proof.html',
-                         account=account,
-                         proof_data=proof_data,
-                         transactions=all_transactions,
-                         username=session.get('username'))
-
-@app.route('/api/plaid/accounts')
-@login_required
-def api_plaid_accounts():
-    """API endpoint to get all Plaid accounts"""
-    try:
-        user_id = session.get('user_id')
-        accounts = get_plaid_accounts(user_id)
-        
-        return jsonify({'accounts': accounts})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Initialize database
