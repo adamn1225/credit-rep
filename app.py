@@ -1166,9 +1166,9 @@ def api_send_reminder():
         
 
 if __name__ == '__main__':
-    # Initialize database
-    from db import init_db
-    init_db()
+    # Initialize database (disabled - do this manually or via migration script)
+    # from db import init_db
+    # init_db()
     
     # Run Flask app
     # In production, gunicorn will handle this
