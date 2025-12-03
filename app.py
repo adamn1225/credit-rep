@@ -36,24 +36,9 @@ if os.getenv('FLASK_ENV') == 'production':
     app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JavaScript access
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 
-# Database initialization - run once on first worker startup only
-# Using a flag to prevent multiple workers from running this simultaneously
-import threading
-_db_init_lock = threading.Lock()
-_db_initialized = False
-
-if not _db_initialized:
-    with _db_init_lock:
-        if not _db_initialized:
-            try:
-                from db import init_db
-                init_db()
-                _db_initialized = True
-                print("✅ Database tables initialized", flush=True)
-            except Exception as e:
-                print(f"⚠️  Database init error: {str(e)}", flush=True)
-                import traceback
-                traceback.print_exc()
+# Database initialization DISABLED - database must be initialized manually
+# Run: railway run python3 -c "from db import init_db; init_db()"
+# This prevents worker startup hangs
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
