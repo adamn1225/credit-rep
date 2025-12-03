@@ -36,9 +36,14 @@ if os.getenv('FLASK_ENV') == 'production':
     app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JavaScript access
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 
-# Database initialization DISABLED - database must be initialized manually
-# Run: railway run python3 -c "from db import init_db; init_db()"
-# This prevents worker startup hangs
+# Database initialization on startup
+try:
+    from db import init_db
+    init_db()
+    print("✅ Database initialized", flush=True)
+except Exception as e:
+    print(f"⚠️  Database init warning: {e}", flush=True)
+    # Continue anyway - tables might already exist
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
@@ -271,8 +276,14 @@ def login():
             flash('❌ Please enter your email and password.', 'danger')
             return render_template('login.html')
         
-        # Get user by email
-        user = get_user_by_email(email)
+        try:
+            # Get user by email
+            user = get_user_by_email(email)
+        except Exception as e:
+            print(f"Database error during login: {e}", flush=True)
+            flash('❌ Database error. Please try again later.', 'danger')
+            return render_template('login.html')
+        
         if user and check_password_hash(user['password_hash'], password):
             # Update last login
             update_last_login_by_email(email)

@@ -15,7 +15,8 @@ def get_db_connection():
     """Get database connection (PostgreSQL)"""
     conn = psycopg2.connect(
         DATABASE_URL,
-        cursor_factory=RealDictCursor
+        cursor_factory=RealDictCursor,
+        connect_timeout=10  # 10 second timeout
     )
     return conn
 
