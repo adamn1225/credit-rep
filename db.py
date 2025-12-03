@@ -60,7 +60,8 @@ def init_db():
             last_login TIMESTAMP,
             is_active INTEGER DEFAULT 1,
             email_verified BOOLEAN DEFAULT FALSE,
-            phone_verified BOOLEAN DEFAULT FALSE
+            phone_verified BOOLEAN DEFAULT FALSE,
+            api_access_enabled BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -977,6 +978,37 @@ def get_user_by_email(email):
     if user:
         return dict(user)
     return None
+
+def verify_user_email(email):
+    """Mark user's email as verified and enable API access"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute("""
+        UPDATE users 
+        SET email_verified = TRUE, api_access_enabled = TRUE 
+        WHERE email = %s
+    """, (email,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def user_has_api_access(user_id):
+    """Check if user has API access enabled"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute(
+        "SELECT api_access_enabled FROM users WHERE id = %s",
+        (user_id,)
+    )
+    result = c.fetchone()
+    conn.close()
+    
+    if result:
+        return result['api_access_enabled'] if isinstance(result, dict) else result[0]
+    return False
 
 # --- Session Management Functions ---
 

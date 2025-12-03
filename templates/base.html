@@ -86,9 +86,11 @@
                     {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> {{ username }}
+                            <i class="bi bi-person-circle"></i> {{ full_name or username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li class="dropdown-header">{{ full_name or username }}</li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('settings') }}"><i class="bi bi-gear"></i> Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>

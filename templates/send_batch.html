@@ -40,10 +40,10 @@
                     <tbody>
                         {% for item in queue %}
                         <tr>
-                            <td><span class="badge bg-primary">{{ item.bureau }}</span></td>
-                            <td>{{ item.creditor_name }}</td>
-                            <td><code>{{ item.account_number }}</code></td>
-                            <td>{{ item.reason[:50] }}{% if item.reason|length > 50 %}...{% endif %}</td>
+                            <td><span class="badge bg-primary">{{ item['bureau'] }}</span></td>
+                            <td>{{ item['creditor_name'] }}</td>
+                            <td><code>{{ item['account_number'] }}</code></td>
+                            <td>{{ item['description'][:50] if item['description'] }}{% if item['description'] and item['description']|length > 50 %}...{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

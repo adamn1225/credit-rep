@@ -76,9 +76,27 @@ def admin_required(f):
 
 @app.context_processor
 def inject_user():
-    """Inject username and role into all templates"""
+    """Inject user info into all templates"""
+    first_name = session.get('first_name', '')
+    last_name = session.get('last_name', '')
+    username = session.get('username', '')
+    email = session.get('email', '')
+    
+    # Display name priority: First name > Username > Email prefix
+    if first_name:
+        display_name = first_name
+        full_display = f"{first_name} {last_name}".strip() if last_name else first_name
+    elif username:
+        display_name = username
+        full_display = username
+    else:
+        display_name = email.split('@')[0] if email else 'User'
+        full_display = display_name
+    
     return {
-        'username': session.get('username'),
+        'username': display_name,  # Keep 'username' for backward compatibility
+        'display_name': display_name,
+        'full_name': full_display,
         'role': session.get('role')
     }
 
@@ -260,7 +278,26 @@ def signup():
             
             print(f"✅ User created successfully: {email}")
             
-            flash(f'✅ Account created successfully! You can now log in.', 'success')
+            # Send verification email
+            import secrets
+            from datetime import datetime, timedelta
+            from db import create_login_token
+            from email_utils import send_verification_email
+            
+            # Generate verification token
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+            
+            # Save token to database
+            create_login_token(email, token, expires_at)
+            
+            # Send verification email
+            app_url = request.url_root.rstrip('/')
+            if send_verification_email(email, token, app_url):
+                flash(f'✅ Account created! Please check {email} to verify your email address.', 'success')
+            else:
+                flash(f'✅ Account created! Login to request a new verification email.', 'warning')
+            
             return redirect(url_for('login'))
             
         except Exception as e:
@@ -320,6 +357,148 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+
+@app.route('/verify-email', methods=['GET'])
+def verify_email():
+    """Verify email address via token"""
+    token = request.args.get('token')
+    
+    if not token:
+        flash('❌ Invalid verification link.', 'danger')
+        return redirect(url_for('login'))
+    
+    from db import verify_login_token, verify_user_email
+    from email_utils import send_welcome_email
+    
+    # Verify token
+    email = verify_login_token(token)
+    
+    if not email:
+        flash('❌ Verification link expired or invalid. Please request a new one.', 'danger')
+        return redirect(url_for('login'))
+    
+    # Mark email as verified and enable API access
+    verify_user_email(email)
+    
+    # Get user for welcome email
+    user = get_user_by_email(email)
+    if user:
+        first_name = user.get('first_name', 'User')
+        send_welcome_email(email, first_name)
+    
+    flash('✅ Email verified! You now have full access to all features.', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    """Resend verification email"""
+    email = request.form.get('email', '').strip().lower()
+    
+    if not email:
+        flash('❌ Please enter your email address.', 'danger')
+        return redirect(url_for('login'))
+    
+    user = get_user_by_email(email)
+    if not user:
+        # Don't reveal if email exists
+        flash('✅ If that email exists, a verification link has been sent.', 'info')
+        return redirect(url_for('login'))
+    
+    if user.get('email_verified'):
+        flash('✅ Your email is already verified! You can log in.', 'info')
+        return redirect(url_for('login'))
+    
+    # Generate new token
+    import secrets
+    from datetime import datetime, timedelta
+    from db import create_login_token
+    from email_utils import send_verification_email
+    
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    create_login_token(email, token, expires_at)
+    
+    app_url = request.url_root.rstrip('/')
+    send_verification_email(email, token, app_url)
+    
+    flash('✅ Verification email sent! Check your inbox.', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Request password reset"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        if not email:
+            flash('❌ Please enter your email address.', 'danger')
+            return render_template('forgot_password.html')
+        
+        user = get_user_by_email(email)
+        
+        # Always show success message (don't reveal if email exists)
+        if user:
+            import secrets
+            from datetime import datetime, timedelta
+            from db import create_login_token
+            from email_utils import send_password_reset_email
+            
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+            create_login_token(email, token, expires_at)
+            
+            app_url = request.url_root.rstrip('/')
+            send_password_reset_email(email, token, app_url)
+        
+        flash('✅ If that email exists, a password reset link has been sent.', 'info')
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Reset password with token"""
+    token = request.args.get('token')
+    
+    if not token:
+        flash('❌ Invalid reset link.', 'danger')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        from db import verify_login_token
+        from werkzeug.security import generate_password_hash
+        
+        # Verify token is still valid
+        email = verify_login_token(token)
+        
+        if not email:
+            flash('❌ Reset link expired or invalid. Please request a new one.', 'danger')
+            return redirect(url_for('forgot_password'))
+        
+        new_password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not new_password or len(new_password) < 6:
+            flash('❌ Password must be at least 6 characters.', 'danger')
+            return render_template('reset_password.html', token=token)
+        
+        if new_password != confirm_password:
+            flash('❌ Passwords do not match.', 'danger')
+            return render_template('reset_password.html', token=token)
+        
+        # Update password
+        from db import get_db_connection
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("UPDATE users SET password_hash = %s WHERE email = %s",
+                 (generate_password_hash(new_password), email))
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Password reset successfully! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token)
 
 @app.route('/add-dispute', methods=['GET', 'POST'])
 @login_required
@@ -597,7 +776,7 @@ def send_batch():
     queue = load_csv_queue()
     
     return render_template('send_batch.html', 
-                         queue=queue.to_dict('records') if not queue.empty else [],
+                         queue=queue,
                          username=session.get('username'))
 
 @app.route('/generate-batch', methods=['POST'])
@@ -723,18 +902,26 @@ def settings():
             new_pw = request.form.get('new_password')
             confirm_pw = request.form.get('confirm_password')
             
-            # Verify current password
-            username = session.get('username')
-            valid, _ = verify_user(username, current_pw)
+            # Verify current password using email
+            email = session.get('email')
+            user = get_user_by_email(email)
             
-            if not valid:
+            if not user or not check_password_hash(user['password_hash'], current_pw):
                 flash('❌ Current password is incorrect.', 'danger')
             elif new_pw != confirm_pw:
                 flash('❌ New passwords do not match.', 'danger')
             elif len(new_pw) < 6:
                 flash('❌ Password must be at least 6 characters.', 'danger')
             else:
-                update_password(username, new_pw)
+                # Update password by email
+                from werkzeug.security import generate_password_hash
+                from db import get_db_connection
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("UPDATE users SET password_hash = %s WHERE email = %s",
+                         (generate_password_hash(new_pw), email))
+                conn.commit()
+                conn.close()
                 flash('✅ Password updated successfully!', 'success')
         elif action == 'save_template':
             # Save template

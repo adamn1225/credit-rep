@@ -37,6 +37,9 @@
                                     <i class="bi bi-eye" id="toggleLoginPasswordIcon"></i>
                                 </button>
                             </div>
+                            <div class="text-end mt-1">
+                                <small><a href="{{ url_for('forgot_password') }}" class="text-muted">Forgot password?</a></small>
+                            </div>
                         </div>
                         
                         <div class="d-grid mb-3">
@@ -45,6 +48,21 @@
                             </button>
                         </div>
                     </form>
+                    
+                    <!-- Resend Verification -->
+                    <div class="text-center mb-3">
+                        <details>
+                            <summary class="text-muted" style="cursor: pointer; font-size: 0.9rem;">
+                                Didn't receive verification email?
+                            </summary>
+                            <form method="POST" action="{{ url_for('resend_verification') }}" class="mt-2">
+                                <div class="input-group input-group-sm">
+                                    <input type="email" class="form-control" name="email" placeholder="your@email.com" required>
+                                    <button type="submit" class="btn btn-outline-primary">Resend</button>
+                                </div>
+                            </form>
+                        </details>
+                    </div>
                     
                     <div class="text-center mt-4">
                         <small class="text-muted">
