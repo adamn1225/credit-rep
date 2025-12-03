@@ -65,6 +65,18 @@ db.sqlite3-journal
 instance/
 .webassets-cache
 
+# SQLite databases (PostgreSQL-only app)
+*.db
+*.db-journal
+*.db.backup*
+*.sqlite
+*.sqlite3
+
+# Logs
+flask.log
+app.log
+nohup.out
+
 # Scrapy stuff:
 .scrapy
 

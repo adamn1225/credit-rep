@@ -159,7 +159,15 @@
                                        title="Preview AI Letter">
                                         <i class="bi bi-robot"></i>
                                     </a>
-                                    <a href="{{ url_for('add_dispute') }}?account_id={{ account.id }}" 
+                                    {% if False %}
+                                    <!-- Plaid disabled temporarily -->
+                                    <a href="{{ url_for('payment_proof', account_id=account.id) }}" 
+                                       class="btn btn-outline-warning"
+                                       title="Find Payment Proof">
+                                        <i class="bi bi-bank"></i>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('add_dispute') }}?account_id={{ account.id) }}" 
                                        class="btn btn-outline-success"
                                        title="Create Dispute">
                                         <i class="bi bi-send"></i>

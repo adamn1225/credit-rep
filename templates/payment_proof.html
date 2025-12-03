@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Proof - Credit Repair Pro{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>💳 Payment Proof Generator</h2>
+                    <p class="text-muted">
+                        Creditor: <strong>{{ account.creditor_name }}</strong> | 
+                        Account: <strong>{{ account.account_number }}</strong>
+                    </p>
+                </div>
+                <a href="{{ url_for('accounts') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Accounts
+                </a>
+            </div>
+            
+            {% if proof_data %}
+            <!-- Payment Summary -->
+            <div class="card border-success mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">✅ Payment History Found!</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Total Paid</h6>
+                            <h3 class="text-success">${{ "%.2f"|format(proof_data.total_paid) }}</h3>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Payments</h6>
+                            <h3>{{ proof_data.payment_count }}</h3>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">First Payment</h6>
+                            <h5>{{ proof_data.first_payment_date[:10] if proof_data.first_payment_date else 'N/A' }}</h5>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="text-muted">Last Payment</h6>
+                            <h5>{{ proof_data.last_payment_date[:10] if proof_data.last_payment_date else 'N/A' }}</h5>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary" onclick="generateProofPDF()">
+                            <i class="bi bi-file-pdf"></i> Generate PDF Evidence
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="emailProof()">
+                            <i class="bi bi-envelope"></i> Email to Bureau
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transaction List -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Transaction Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Merchant</th>
+                                    <th>Amount</th>
+                                    <th>Channel</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for txn in transactions %}
+                                <tr>
+                                    <td>{{ txn.date[:10] if txn.date else 'N/A' }}</td>
+                                    <td>{{ txn.name }}</td>
+                                    <td>{{ txn.merchant_name or '-' }}</td>
+                                    <td class="text-success fw-bold">${{ "%.2f"|format(txn.amount) }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ txn.payment_channel }}</span>
+                                    </td>
+                                    <td>
+                                        {% if txn.pending %}
+                                        <span class="badge bg-warning">Pending</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Posted</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            {% else %}
+            <!-- No Transactions Found -->
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle"></i> No Payment Transactions Found</h5>
+                <p>We couldn't find any payments to <strong>{{ account.creditor_name }}</strong> in your linked bank accounts.</p>
+                <ul>
+                    <li>Try connecting more bank accounts if you paid from a different account</li>
+                    <li>Check if the creditor name matches (e.g., "Capital One" vs "CapitalOne")</li>
+                    <li>Transactions may take 1-2 days to appear</li>
+                </ul>
+                <a href="{{ url_for('connect_bank') }}" class="btn btn-primary">
+                    <i class="bi bi-bank"></i> Connect Another Bank
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- How It Works -->
+            <div class="card mt-4 bg-light">
+                <div class="card-body">
+                    <h6>💡 How Payment Proof Works:</h6>
+                    <ol class="mb-0 small">
+                        <li>We search your linked bank accounts for transactions to this creditor</li>
+                        <li>Generate a professional PDF with payment history</li>
+                        <li>Attach to your dispute letter as evidence</li>
+                        <li>Strengthens "already paid" or "incorrect balance" disputes</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function generateProofPDF() {
+    // TODO: Implement PDF generation endpoint
+    alert('PDF generation coming soon! For now, you can screenshot this page.');
+}
+
+function emailProof() {
+    alert('Email feature coming soon! Generate PDF and attach manually for now.');
+}
+</script>
+{% endblock %}

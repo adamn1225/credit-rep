@@ -3,7 +3,7 @@ Flask==3.0.0
 Werkzeug==3.0.1
 Jinja2==3.1.2
 gunicorn==21.2.0
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9  # PostgreSQL adapter for Railway deployment
 
 # AI Integration
 openai==1.54.3
@@ -14,6 +14,12 @@ numpy==2.2.6
 
 # Lob API
 lob==4.5.4
+
+# Plaid API (Banking Integration)
+plaid-python==24.0.0
+
+# Email (SendGrid)
+sendgrid==6.11.0
 
 # PDF Generation
 reportlab==4.4.4

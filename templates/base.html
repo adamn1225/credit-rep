@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>{% block title %}Next Credit{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
@@ -53,6 +54,14 @@
                             <i class="bi bi-file-earmark-pdf"></i> Documents
                         </a>
                     </li>
+                    {% if False %}
+                    <!-- Plaid integration disabled - pending institution approval -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'connect_bank' %}active{% endif %}" href="{{ url_for('connect_bank') }}">
+                            <i class="bi bi-bank"></i> Connect Bank
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if role == 'admin' %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">

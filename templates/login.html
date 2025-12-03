@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_public.html" %}
 
 {% block title %}Login - Next Credit{% endblock %}
 
@@ -14,13 +14,16 @@
                         <p class="text-muted">Sign in to your account</p>
                     </div>
                     
-                    <form method="POST">
+                    <!-- Email/Password Login -->
+                    <form method="POST" id="passwordForm" autocomplete="off">
+                        <input type="hidden" name="login_type" value="password">
+                        
                         <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
+                            <label for="login_email" class="form-label">Email Address</label>
                             <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                <input type="text" class="form-control" id="username" name="username" 
-                                       placeholder="Enter username" required autofocus>
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control" id="login_email" name="email" 
+                                       placeholder="you@example.com" required autofocus autocomplete="off">
                             </div>
                         </div>
                         
@@ -29,11 +32,14 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
                                 <input type="password" class="form-control" id="password" name="password" 
-                                       placeholder="Enter password" required>
+                                       placeholder="Enter password" required autocomplete="current-password">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword">
+                                    <i class="bi bi-eye" id="toggleLoginPasswordIcon"></i>
+                                </button>
                             </div>
                         </div>
                         
-                        <div class="d-grid">
+                        <div class="d-grid mb-3">
                             <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="bi bi-box-arrow-in-right"></i> Login
                             </button>
@@ -41,11 +47,32 @@
                     </form>
                     
                     <div class="text-center mt-4">
-                        <small class="text-muted">Sign up coming soon</small>
+                        <small class="text-muted">
+                            Don't have an account? 
+                            <a href="{{ url_for('signup') }}">Sign Up</a>
+                        </small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Password visibility toggle for login
+document.getElementById('toggleLoginPassword').addEventListener('click', function() {
+    const passwordInput = document.getElementById('password');
+    const icon = document.getElementById('toggleLoginPasswordIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+});
+</script>
 {% endblock %}

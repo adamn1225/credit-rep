@@ -11,14 +11,21 @@ import os
 import requests
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
 from db import (
     init_db, verify_user, update_password, get_user, create_user,
     get_user_disputes, get_user_stats, log_dispute,
     get_user_accounts, add_user_account, update_account_status, list_users,
     add_document, get_user_documents, get_document_by_id, delete_document,
-    update_document_analysis, get_disputes_awaiting_response
+    update_document_analysis, get_disputes_awaiting_response,
+    save_plaid_item, get_plaid_items, get_plaid_item_by_id, update_plaid_item_cursor,
+    save_plaid_account, get_plaid_accounts, save_plaid_transaction,
+    search_plaid_transactions, delete_plaid_item,
+    get_user_by_email, create_user_with_email, update_last_login_by_email
 )
 from document_analyzer import analyze_document
+import plaid_integration
+import hashlib
 
 load_dotenv()
 
@@ -27,6 +34,12 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-product
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'documents'
+
+# Production security settings
+if os.getenv('FLASK_ENV') == 'production':
+    app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JavaScript access
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
@@ -56,7 +69,7 @@ def admin_required(f):
             return redirect(url_for('login'))
         if session.get('role') != 'admin':
             flash('❌ Admin access required.', 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -136,6 +149,22 @@ def append_to_csv(data):
 
 # --- Routes ---
 @app.route('/')
+def landing():
+    """Public landing page"""
+    # If user is already logged in, redirect to dashboard
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('landing.html')
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Redirect old index route to dashboard"""
+    return index()
+
+
+@app.route('/app')
 @login_required
 def index():
     """Dashboard home page"""
@@ -171,27 +200,124 @@ def index():
                          get_status_color=get_status_color,
                          username=session.get('username'))
 
+def get_device_fingerprint():
+    """Generate a device fingerprint from user agent and IP"""
+    user_agent = request.headers.get('User-Agent', '')
+    ip_address = request.remote_addr or ''
+    fingerprint_str = f"{user_agent}:{ip_address}"
+    return hashlib.sha256(fingerprint_str.encode()).hexdigest()
+
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    """User signup page"""
+    if request.method == 'POST':
+        try:
+            first_name = request.form.get('first_name', '').strip()
+            last_name = request.form.get('last_name', '').strip()
+            email = request.form.get('email', '').strip().lower()
+            phone = request.form.get('phone', '').strip()
+            password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+            agree_tos = request.form.get('agree_tos')
+            
+            print(f"\n=== SIGNUP ATTEMPT ===")
+            print(f"Email: {email}")
+            print(f"Name: {first_name} {last_name}")
+            print(f"Phone: {phone}")
+            print(f"Agree TOS: {agree_tos}")
+            
+            # Use email as username (before @ symbol)
+            username = email.split('@')[0].lower()
+            full_name = f"{first_name} {last_name}".strip()
+            
+            # Validation
+            if not all([first_name, last_name, email, phone, password]):
+                print(f"Validation failed: Missing fields")
+                flash('❌ All fields are required.', 'danger')
+                return render_template('signup.html')
+            
+            if not agree_tos:
+                print(f"Validation failed: TOS not accepted")
+                flash('❌ You must accept the Terms of Service and Privacy Policy.', 'danger')
+                return render_template('signup.html')
+            
+            if password != confirm_password:
+                print(f"Validation failed: Passwords don't match")
+                flash('❌ Passwords do not match.', 'danger')
+                return render_template('signup.html')
+            
+            if len(password) < 6:
+                print(f"Validation failed: Password too short")
+                flash('❌ Password must be at least 6 characters.', 'danger')
+                return render_template('signup.html')
+            
+            # Create user
+            print(f"Creating user with email: {email}")
+            success, message = create_user_with_email(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                agree_tos=bool(agree_tos),
+                marketing_emails=bool(request.form.get('marketing_emails'))
+            )
+            
+            print(f"User creation result: success={success}, message={message}")
+            
+            if not success:
+                print(f"ERROR: User creation failed - {message}")
+                flash(f'❌ {message}', 'danger')
+                return render_template('signup.html')
+            
+            print(f"✅ User created successfully: {email}")
+            
+            flash(f'✅ Account created successfully! You can now log in.', 'success')
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            print(f"❌ SIGNUP ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            flash(f'❌ An error occurred: {str(e)}', 'danger')
+            return render_template('signup.html')
+    
+    return render_template('signup.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page"""
+    """Login page - email + password only"""
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
         
-        valid, role = verify_user(username, password)
-        if valid:
-            # Get user info to store user_id in session
-            user = get_user(username)
+        if not email or not password:
+            flash('❌ Please enter your email and password.', 'danger')
+            return render_template('login.html')
+        
+        # Get user by email
+        user = get_user_by_email(email)
+        if user and check_password_hash(user['password_hash'], password):
+            # Update last login
+            update_last_login_by_email(email)
+            
+            # Log user in
             session.permanent = True
-            session['username'] = username
+            session['email'] = email
             session['user_id'] = user['id']
-            session['role'] = role
-            flash(f'Welcome back, {username}!', 'success')
-            return redirect(url_for('index'))
+            session['role'] = user['role']
+            session['username'] = user['username']
+            
+            name = user.get('first_name') or email.split('@')[0]
+            flash(f'✅ Welcome back, {name}!', 'success')
+            return redirect(url_for('dashboard'))
         else:
-            flash('Invalid username or password.', 'danger')
+            flash('❌ Invalid email or password.', 'danger')
     
     return render_template('login.html')
+
 
 @app.route('/logout')
 def logout():
@@ -236,7 +362,7 @@ def add_dispute():
                 else:
                     flash('⚠️ Added to queue, but send failed. Check logs.', 'warning')
             
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
         else:
             flash('All fields are required.', 'warning')
     
@@ -583,7 +709,7 @@ def send_to_lob():
     
     if result.returncode == 0:
         flash('✅ Letters sent via Lob! Check dashboard for tracking.', 'success')
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     else:
         flash(f'❌ Send failed: {result.stderr}', 'danger')
         return redirect(url_for('review_batch'))
@@ -602,7 +728,7 @@ def check_status():
     else:
         flash(f'❌ Status check failed: {result.stderr}', 'warning')
     
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -666,7 +792,7 @@ def download_pdf(dispute_id):
                            mimetype='application/pdf')
     
     flash('PDF not found.', 'warning')
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/admin/users', methods=['GET', 'POST'])
 @admin_required
@@ -682,23 +808,26 @@ def admin_users():
             email = request.form.get('email')
             full_name = request.form.get('full_name')
             
-            if username and password:
+            if not email:
+                flash('❌ Email address is required for magic link authentication.', 'danger')
+                return redirect(url_for('admin_users'))
+            
+            if username and password and email:
                 success, message = create_user(username, password, role)
                 if success:
-                    # Update additional fields if provided
-                    if email or full_name:
-                        conn = get_db_connection()
-                        conn.execute(
-                            "UPDATE users SET email = ?, full_name = ? WHERE username = ?",
-                            (email, full_name, username)
-                        )
-                        conn.commit()
-                        conn.close()
+                    # Update additional fields
+                    conn = get_db_connection()
+                    conn.execute(
+                        "UPDATE users SET email = ?, full_name = ? WHERE username = ?",
+                        (email, full_name, username)
+                    )
+                    conn.commit()
+                    conn.close()
                     flash(f'✅ User "{username}" created successfully!', 'success')
                 else:
                     flash(f'❌ {message}', 'danger')
             else:
-                flash('❌ Username and password are required.', 'danger')
+                flash('❌ Username, password, and email are required.', 'danger')
             
             return redirect(url_for('admin_users'))
         
@@ -1070,10 +1199,221 @@ def api_send_reminder():
     except requests.exceptions.RequestException as e:
         return jsonify({'error': 'Failed to connect to n8n', 'details': str(e)}), 500
 
+# --- Plaid Integration Routes ---
+
+@app.route('/connect-bank')
+@login_required
+def connect_bank():
+    """Plaid Link connection page"""
+    user_id = session.get('user_id')
+    username = session.get('username')
+    
+    # Get existing Plaid connections
+    plaid_items = get_plaid_items(user_id)
+    
+    return render_template('connect_bank.html',
+                         plaid_items=plaid_items,
+                         username=username)
+
+@app.route('/api/plaid/create-link-token', methods=['POST'])
+@login_required
+def create_plaid_link_token():
+    """Create Plaid Link token for frontend"""
+    try:
+        user_id = session.get('user_id')
+        username = session.get('username')
+        
+        # Create link token (without redirect_uri for simpler setup)
+        link_token = plaid_integration.create_link_token(
+            user_id=user_id,
+            username=username
+        )
+        
+        return jsonify({'link_token': link_token})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/plaid/exchange-token', methods=['POST'])
+@login_required
+def exchange_plaid_token():
+    """Exchange public token for access token and sync accounts"""
+    try:
+        user_id = session.get('user_id')
+        data = request.get_json()
+        public_token = data.get('public_token')
+        
+        if not public_token:
+            return jsonify({'error': 'Missing public_token'}), 400
+        
+        # Exchange token
+        token_data = plaid_integration.exchange_public_token(public_token)
+        
+        # Save to database
+        plaid_item_id = save_plaid_item(
+            user_id=user_id,
+            item_id=token_data['item_id'],
+            access_token=token_data['access_token']
+        )
+        
+        # Fetch and save accounts
+        accounts_data = plaid_integration.get_accounts(token_data['access_token'])
+        
+        for account in accounts_data['accounts']:
+            save_plaid_account(user_id, plaid_item_id, account)
+        
+        # Start initial transaction sync (background task would be better)
+        try:
+            sync_result = plaid_integration.sync_transactions(token_data['access_token'])
+            
+            # Save transactions
+            for txn in sync_result['transactions']:
+                save_plaid_transaction(user_id, txn['plaid_account_id'], txn)
+            
+            # Update cursor
+            update_plaid_item_cursor(plaid_item_id, sync_result['cursor'])
+            
+        except Exception as sync_error:
+            print(f"Transaction sync error: {sync_error}")
+            # Continue even if sync fails
+        
+        return jsonify({
+            'success': True,
+            'accounts_imported': len(accounts_data['accounts'])
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/plaid/sync-accounts/<int:plaid_item_id>', methods=['POST'])
+@login_required
+def sync_plaid_accounts(plaid_item_id):
+    """Manually sync Plaid accounts and transactions"""
+    try:
+        user_id = session.get('user_id')
+        
+        # Get Plaid item
+        plaid_item = get_plaid_item_by_id(plaid_item_id, user_id)
+        if not plaid_item:
+            return jsonify({'error': 'Plaid item not found'}), 404
+        
+        access_token = plaid_item['access_token']
+        
+        # Sync accounts
+        accounts_data = plaid_integration.get_accounts(access_token)
+        for account in accounts_data['accounts']:
+            save_plaid_account(user_id, plaid_item_id, account)
+        
+        # Sync transactions
+        cursor = plaid_item.get('cursor')
+        sync_result = plaid_integration.sync_transactions(access_token, cursor=cursor)
+        
+        txn_count = 0
+        for txn in sync_result['transactions']:
+            save_plaid_transaction(user_id, txn['plaid_account_id'], txn)
+            txn_count += 1
+        
+        # Update cursor
+        update_plaid_item_cursor(plaid_item_id, sync_result['cursor'])
+        
+        return jsonify({
+            'success': True,
+            'accounts_synced': len(accounts_data['accounts']),
+            'transactions_synced': txn_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/plaid/disconnect/<int:plaid_item_id>', methods=['POST'])
+@login_required
+def disconnect_plaid_item(plaid_item_id):
+    """Disconnect a Plaid bank connection"""
+    try:
+        user_id = session.get('user_id')
+        delete_plaid_item(plaid_item_id, user_id)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/payment-proof/<int:account_id>')
+@login_required
+def payment_proof(account_id):
+    """Search for payment proof transactions for an account"""
+    user_id = session.get('user_id')
+    
+    # Get account details
+    conn = get_db_connection()
+    account = conn.execute(
+        'SELECT * FROM user_accounts WHERE id = ? AND user_id = ?',
+        (account_id, user_id)
+    ).fetchone()
+    conn.close()
+    
+    if not account:
+        flash('❌ Account not found', 'danger')
+        return redirect(url_for('accounts'))
+    
+    # Get Plaid items
+    plaid_items = get_plaid_items(user_id)
+    
+    if not plaid_items:
+        flash('⚠️ No bank accounts connected. Connect a bank to search for payment proof.', 'warning')
+        return redirect(url_for('connect_bank'))
+    
+    # Search transactions across all Plaid items
+    all_transactions = []
+    creditor_name = account['creditor_name']
+    
+    for plaid_item in plaid_items:
+        try:
+            transactions = plaid_integration.search_payment_transactions(
+                access_token=plaid_item['access_token'],
+                creditor_name=creditor_name
+            )
+            all_transactions.extend(transactions)
+        except Exception as e:
+            print(f"Error searching transactions: {e}")
+            continue
+    
+    # Generate proof data
+    if all_transactions:
+        proof_data = plaid_integration.generate_payment_proof_data(all_transactions, creditor_name)
+    else:
+        proof_data = None
+    
+    return render_template('payment_proof.html',
+                         account=account,
+                         proof_data=proof_data,
+                         transactions=all_transactions,
+                         username=session.get('username'))
+
+@app.route('/api/plaid/accounts')
+@login_required
+def api_plaid_accounts():
+    """API endpoint to get all Plaid accounts"""
+    try:
+        user_id = session.get('user_id')
+        accounts = get_plaid_accounts(user_id)
+        
+        return jsonify({'accounts': accounts})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     # Initialize database
     from db import init_db
     init_db()
     
     # Run Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # In production, gunicorn will handle this
+    # In development, run with debug mode
+    is_production = os.getenv('FLASK_ENV') == 'production'
+    app.run(
+        debug=not is_production,
+        host='0.0.0.0',
+        port=int(os.getenv('PORT', 5000))
+    )
