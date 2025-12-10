@@ -5,7 +5,14 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # PostgreSQL database connection
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/nextcredit')
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if not DATABASE_URL:
+    # Fallback for local development
+    DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/nextcredit'
+    print("⚠️  Using local database (DATABASE_URL not set)")
+else:
+    print(f"✅ Using database: {DATABASE_URL[:30]}...")  # Show first 30 chars for debugging
 
 # Railway provides postgres:// but psycopg2 needs postgresql://
 if DATABASE_URL.startswith('postgres://'):
