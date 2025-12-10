@@ -431,18 +431,34 @@ def update_account_status(account_id, status, notes=None):
 
 # --- Disputes Management (with user isolation) ---
 def get_user_disputes(user_id, status=None):
-    """Get all disputes for a specific user"""
+    """Get all disputes for a specific user with account details"""
     conn = get_db_connection()
     c = conn.cursor()
     
+    # JOIN with user_accounts to get full account details
+    base_query = """
+        SELECT 
+            d.*,
+            ua.account_type,
+            ua.balance,
+            ua.notes,
+            ua.reason
+        FROM disputes d
+        LEFT JOIN user_accounts ua 
+            ON d.account_number = ua.account_number 
+            AND d.bureau = ua.bureau
+            AND d.user_id = ua.user_id
+        WHERE d.user_id = %s
+    """
+    
     if status:
         c.execute(
-            "SELECT * FROM disputes WHERE user_id = %s AND status = %s ORDER BY sent_date DESC",
+            base_query + " AND d.status = %s ORDER BY d.sent_date DESC",
             (user_id, status)
         )
     else:
         c.execute(
-            "SELECT * FROM disputes WHERE user_id = %s ORDER BY sent_date DESC",
+            base_query + " ORDER BY d.sent_date DESC",
             (user_id,)
         )
     
@@ -471,6 +487,19 @@ def update_dispute_status(dispute_id, new_status, notes=None):
         INSERT INTO dispute_history (dispute_id, action, old_status, new_status, notes)
         VALUES (%s, %s, %s, %s, %s)
     """, (dispute_id, 'status_change', old_status, new_status, notes))
+    
+    conn.commit()
+    conn.close()
+
+def update_dispute_pdf_path(dispute_id, pdf_path):
+    """Update dispute with generated PDF path"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    c.execute(
+        "UPDATE disputes SET pdf_path = %s WHERE id = %s",
+        (str(pdf_path), dispute_id)
+    )
     
     conn.commit()
     conn.close()

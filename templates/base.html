@@ -41,13 +41,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'add_dispute' %}active{% endif %}" href="{{ url_for('add_dispute') }}">
-                            <i class="bi bi-plus-circle"></i> Add Dispute
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'send_batch' %}active{% endif %}" href="{{ url_for('send_batch') }}">
-                            <i class="bi bi-send"></i> Send Batch
+                            <i class="bi bi-send"></i> Send Letters
                         </a>
                     </li>
 

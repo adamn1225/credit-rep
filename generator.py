@@ -13,9 +13,10 @@ from ai_generator import generate_dispute_letter_ai
 def render_letter(row, template_dir="disputes/templates", use_ai=True):
     """
     Generate letter content - uses AI if enabled, falls back to template
+    AI tries Ollama first (local, free), then OpenAI if available
     """
-    if use_ai and os.getenv("OPENAI_API_KEY"):
-        # Use AI to generate letter
+    if use_ai:
+        # Try AI generation (Ollama or OpenAI)
         account_info = {
             'bureau': row.get('bureau'),
             'creditor_name': row.get('creditor_name'),
@@ -25,23 +26,28 @@ def render_letter(row, template_dir="disputes/templates", use_ai=True):
             'balance': row.get('balance', ''),
             'notes': row.get('notes', '')
         }
-        return generate_dispute_letter_ai(account_info)
-    else:
-        # Fallback to Jinja2 template
-        env = Environment(loader=FileSystemLoader(template_dir))
-        template = env.get_template("dispute_letter.j2")
+        ai_letter = generate_dispute_letter_ai(account_info)
         
-        return template.render(
-            today_date=date.today().strftime("%B %d, %Y"),
-            bureau=row["bureau"],
-            creditor_name=row["creditor_name"],
-            account_number=row["account_number"],
-            reason=row["reason"],
-            full_name="John Doe",
-            address="123 Main St, Tampa, FL 33602",
-            dob="01/01/1990",
-            ssn_last4="1234"
-        )
+        if ai_letter:
+            return ai_letter
+        else:
+            print("⚠️  AI generation failed, falling back to template")
+    
+    # Fallback to Jinja2 template
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("dispute_letter.j2")
+    
+    return template.render(
+        today_date=date.today().strftime("%B %d, %Y"),
+        bureau=row["bureau"],
+        creditor_name=row["creditor_name"],
+        account_number=row["account_number"],
+        reason=row["reason"],
+        full_name="John Doe",
+        address="123 Main St, Tampa, FL 33602",
+        dob="01/01/1990",
+        ssn_last4="1234"
+    )
 
 def generate_pdf(text, out_path):
     """Generate PDF from text content with better formatting"""

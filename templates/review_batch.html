@@ -48,19 +48,118 @@
                             <td><code>{{ dispute.account_number }}</code></td>
                             <td>{{ dispute.description[:50] }}{% if dispute.description|length > 50 %}...{% endif %}</td>
                             <td>
-                                <a href="{{ url_for('download_pdf', dispute_id=dispute.id) }}" 
-                                   class="btn btn-sm btn-outline-primary" 
-                                   target="_blank">
-                                    <i class="bi bi-file-pdf"></i> Download PDF
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('download_pdf', dispute_id=dispute.id) }}" 
+                                       class="btn btn-primary" 
+                                       target="_blank">
+                                        <i class="bi bi-file-pdf"></i> Download
+                                    </a>
+                                    <button class="btn btn-warning"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#premiumRegenModal{{ dispute.id }}">
+                                        <i class="bi bi-stars"></i> Premium AI
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Premium AI Info -->
+            <div class="alert alert-info mb-0 mt-3">
+                <i class="bi bi-info-circle"></i> 
+                <strong>Not satisfied with a letter?</strong> Use our Premium AI Regeneration to customize it with GPT-4 for just <strong>$1.99</strong> per letter.
+            </div>
         </div>
     </div>
+
+    <!-- Premium Regeneration Modals -->
+    {% for dispute in disputes %}
+    <div class="modal fade" id="premiumRegenModal{{ dispute.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning bg-opacity-10">
+                    <h5 class="modal-title">
+                        <i class="bi bi-stars"></i> Premium AI Regeneration - $1.99
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('regenerate_with_premium_ai') }}">
+                    <div class="modal-body">
+                        <input type="hidden" name="dispute_id" value="{{ dispute.id }}">
+                        
+                        <div class="alert alert-warning">
+                            <strong>Current Letter:</strong> {{ dispute.creditor_name }} - {{ dispute.account_number }}
+                            <br>Generated with: <strong>Free Ollama AI</strong>
+                        </div>
+                        
+                        <h6 class="mt-3">Customize Your Letter</h6>
+                        <p class="text-muted small">Guide GPT-4 to regenerate this letter exactly how you want it.</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Tone</label>
+                            <select class="form-select" name="tone">
+                                <option value="professional">Professional (Default)</option>
+                                <option value="assertive">Assertive & Firm</option>
+                                <option value="formal">Highly Formal</option>
+                                <option value="urgent">Urgent & Time-Sensitive</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Additional Details to Include</label>
+                            <textarea class="form-control" name="additional_details" rows="3" 
+                                      placeholder="e.g., 'Mention that I filed a police report for identity theft' or 'Emphasize the account was paid off in 2023'"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Special Emphasis</label>
+                            <textarea class="form-control" name="emphasis" rows="2" 
+                                      placeholder="e.g., 'Focus on FCRA violations' or 'Highlight that this is causing mortgage denial'"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Length Preference</label>
+                            <select class="form-select" name="length">
+                                <option value="concise">Concise (300-400 words)</option>
+                                <option value="standard" selected>Standard (400-500 words)</option>
+                                <option value="detailed">Detailed (500-600 words)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <strong>What You Get:</strong>
+                            <ul class="mb-0 small">
+                                <li>GPT-4 powered regeneration</li>
+                                <li>Customized to your exact specifications</li>
+                                <li>Professional legal language</li>
+                                <li>Higher success rate</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-warning border-warning">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-credit-card fs-4 me-3 text-warning"></i>
+                                <div>
+                                    <strong>Payment Required:</strong> $1.99 per regeneration
+                                    <br><small class="text-muted">You'll be prompted to add a payment method on the next step. This is a one-time charge and replaces your existing free letter.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-stars"></i> Continue to Payment ($1.99)
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 
     <!-- Cost Warning -->
     <div class="card shadow-sm border-warning mb-4">
@@ -80,7 +179,7 @@
 
     <!-- Send Confirmation -->
     <form method="POST" action="{{ url_for('send_to_lob') }}" 
-          onsubmit="return confirm('⚠️ CONFIRM SEND TO LOB\n\n✉️ Letters: {{ disputes|length }}\n💰 Est. Cost: ${{ (disputes|length * 1.5)|round(2) }}\n📬 Delivery: 5-7 days\n\nHave you reviewed all PDFs?\n\nThis action cannot be undone!');">
+          onsubmit="return confirm('⚠️ PROCEED TO CHECKOUT\n\n✉️ Letters: {{ disputes|length }}\n💰 Total: ${{ (disputes|length * 1.5)|round(2) }}\n📬 Delivery: 5-7 days\n\n✅ You will add payment info on the next page.\n\nContinue?');">
         <div class="d-grid gap-2 d-md-flex justify-content-md-between">
             <a href="{{ url_for('send_batch') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Queue
@@ -90,7 +189,7 @@
                     <i class="bi bi-house"></i> Save for Later
                 </a>
                 <button type="submit" class="btn btn-danger btn-lg">
-                    <i class="bi bi-send-fill"></i> Send {{ disputes|length }} Letter(s) via Lob
+                    <i class="bi bi-cart-check-fill"></i> Proceed to Checkout (${{ (disputes|length * 1.5)|round(2) }})
                 </button>
             </div>
         </div>

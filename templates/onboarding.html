@@ -2,6 +2,12 @@
 
 {% block title %}Complete Your Profile - Next Credit{% endblock %}
 
+{% block extra_css %}
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+{% endblock %}
+
 {% block content %}
 <div class="container py-5">
     <div class="row justify-content-center">
@@ -130,9 +136,9 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="date_of_birth" class="form-label">Date of Birth *</label>
-                                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                       max="{{ today }}" required>
-                                <small class="form-text text-muted">Format: MM/DD/YYYY</small>
+                                <input type="text" class="form-control" id="date_of_birth" name="date_of_birth" 
+                                       placeholder="Select your date of birth" required readonly>
+                                <small class="form-text text-muted">Click to select date</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="ssn_last_4" class="form-label">Last 4 Digits of SSN *</label>
@@ -170,7 +176,27 @@
     </div>
 </div>
 
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 <script>
+// Date of Birth Picker with Flatpickr
+flatpickr("#date_of_birth", {
+    dateFormat: "Y-m-d",
+    maxDate: "today",
+    defaultDate: null,
+    allowInput: false,
+    theme: "material_blue",
+    yearRange: [1900, new Date().getFullYear()],
+    monthSelectorType: "dropdown",
+    yearSelectorType: "dropdown",
+    disableMobile: false,
+    onReady: function(selectedDates, dateStr, instance) {
+        // Add calendar icon
+        instance.calendarContainer.classList.add('flatpickr-calendar-custom');
+    }
+});
+
 // ZIP code formatting
 document.getElementById('zip_code').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');

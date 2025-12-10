@@ -1,56 +1,86 @@
 {% extends "base.html" %}
 
-{% block title %}Send Batch - Next Credit{% endblock %}
+{% block title %}Send Letters - Next Credit{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4"><i class="bi bi-send"></i> Send New Dispute Batch</h2>
+    <h2 class="mb-4"><i class="bi bi-send"></i> Send Dispute Letters</h2>
 
     {% if queue|length == 0 %}
     <div class="alert alert-warning">
         <i class="bi bi-exclamation-triangle"></i> 
-        No pending disputes in queue. Add disputes first!
+        No pending disputes in queue. Add accounts first!
     </div>
     <div class="text-center py-4">
-        <a href="{{ url_for('add_dispute') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add New Dispute
+        <a href="{{ url_for('accounts') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-credit-card"></i> Add Your First Account
         </a>
     </div>
     {% else %}
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> 
-        Ready to send <strong>{{ queue|length }}</strong> dispute(s)
+    <!-- Success Message with Call to Action -->
+    <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+        <h5 class="alert-heading">
+            <i class="bi bi-check-circle-fill"></i> Great! You're Almost There
+        </h5>
+        <p class="mb-0">
+            You have <strong>{{ queue|length }}</strong> dispute letter(s) ready. 
+            Select which letters to generate, then click "Generate PDFs" below.
+        </p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">Queue Preview</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Bureau</th>
-                            <th>Creditor</th>
-                            <th>Account</th>
-                            <th>Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in queue %}
-                        <tr>
-                            <td><span class="badge bg-primary">{{ item['bureau'] }}</span></td>
-                            <td>{{ item['creditor_name'] }}</td>
-                            <td><code>{{ item['account_number'] }}</code></td>
-                            <td>{{ item['description'][:50] if item['description'] }}{% if item['description'] and item['description']|length > 50 %}...{% endif %}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <form method="POST" action="{{ url_for('generate_batch') }}" id="batchForm">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-envelope-paper"></i> Select Letters to Send</h5>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                        <i class="bi bi-check-all"></i> Select All
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">
+                        <i class="bi bi-x"></i> Deselect All
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" class="form-check-input" id="selectAllCheckbox" onchange="toggleAll(this)">
+                                </th>
+                                <th>Bureau</th>
+                                <th>Creditor</th>
+                                <th>Account</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in queue %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input dispute-checkbox" 
+                                           name="selected_disputes" 
+                                           value="{{ item['id'] }}" 
+                                           checked>
+                                </td>
+                                <td><span class="badge bg-primary">{{ item['bureau'] }}</span></td>
+                                <td>{{ item['creditor_name'] }}</td>
+                                <td><code>{{ item['account_number'] }}</code></td>
+                                <td>{{ item['description'][:50] if item['description'] }}{% if item['description'] and item['description']|length > 50 %}...{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Selected: <span id="selectedCount">{{ queue|length }}</span> letter(s)</strong>
+                    <span class="ms-3">Estimated cost: $<span id="estimatedCost">{{ queue|length * 2 }}</span> (when sent)</span>
+                </div>
             </div>
         </div>
-    </div>
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
@@ -58,24 +88,70 @@
             <ol class="mb-0">
                 <li><strong>Step 1:</strong> Generate PDF letters (AI + ReportLab) - FREE</li>
                 <li><strong>Step 2:</strong> Preview generated PDFs before sending</li>
-                <li><strong>Step 3:</strong> Send via Lob API (costs ~$1-2 per letter)</li>
+                <li><strong>Step 3:</strong> Send via Lob API (costs ~$2 per letter)</li>
             </ol>
             <div class="alert alert-info mt-3 mb-0">
-                <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Always review PDFs before sending to avoid wasting Lob credits!
+                <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Always review PDFs before sending to avoid wasting credits!
             </div>
         </div>
     </div>
 
-    <form method="POST" action="{{ url_for('generate_batch') }}">
         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-x-circle"></i> Cancel
+            <a href="{{ url_for('accounts') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Accounts
             </a>
             <button type="submit" class="btn btn-success btn-lg">
-                <i class="bi bi-file-earmark-pdf"></i> Generate PDFs (Step 1)
+                <i class="bi bi-file-earmark-pdf"></i> Generate Selected PDFs
             </button>
         </div>
     </form>
+
+    <script>
+        // Toggle all checkboxes
+        function toggleAll(source) {
+            const checkboxes = document.querySelectorAll('.dispute-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+            updateSelectedCount();
+        }
+
+        // Select all button
+        function selectAll() {
+            const checkboxes = document.querySelectorAll('.dispute-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+            document.getElementById('selectAllCheckbox').checked = true;
+            updateSelectedCount();
+        }
+
+        // Deselect all button
+        function deselectAll() {
+            const checkboxes = document.querySelectorAll('.dispute-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('selectAllCheckbox').checked = false;
+            updateSelectedCount();
+        }
+
+        // Update selected count and cost estimate
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.dispute-checkbox:checked');
+            const count = checkboxes.length;
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('estimatedCost').textContent = count * 2;
+        }
+
+        // Update count when individual checkboxes change
+        document.querySelectorAll('.dispute-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCount);
+        });
+
+        // Validate at least one selected before submit
+        document.getElementById('batchForm').addEventListener('submit', function(e) {
+            const checkboxes = document.querySelectorAll('.dispute-checkbox:checked');
+            if (checkboxes.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one letter to generate.');
+            }
+        });
+    </script>
     {% endif %}
 </div>
 {% endblock %}

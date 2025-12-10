@@ -1,20 +1,112 @@
 """
 AI Letter Generation Module
-Uses OpenAI GPT-4 to generate personalized credit dispute letters
+Uses Ollama (local LLM) or OpenAI GPT-4 to generate personalized credit dispute letters
 """
 
 import os
-from openai import OpenAI
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI configuration (lazy initialization)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+def get_openai_client():
+    """Lazy initialize OpenAI client only when needed"""
+    if not OPENAI_API_KEY:
+        return None
+    try:
+        from openai import OpenAI
+        return OpenAI(api_key=OPENAI_API_KEY)
+    except Exception as e:
+        print(f"Failed to initialize OpenAI client: {e}")
+        return None
+
+# Ollama configuration
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "llama3.2"  # Using llama3.2 for better text generation
+
+def generate_dispute_letter_ollama(account_info: dict, personal_info: dict = None) -> str:
+    """
+    Generate a personalized credit dispute letter using Ollama (local LLM)
+    
+    Args:
+        account_info: Dictionary with account details
+        personal_info: Dictionary with sender details (optional)
+    
+    Returns:
+        Generated letter text
+    """
+    
+    # Build the prompt
+    prompt = f"""You are an expert credit repair specialist. Generate a professional, legally-compliant credit dispute letter.
+
+ACCOUNT INFORMATION:
+- Credit Bureau: {account_info.get('bureau', 'N/A')}
+- Creditor: {account_info.get('creditor_name', 'N/A')}
+- Account Number: {account_info.get('account_number', 'N/A')}
+- Account Type: {account_info.get('account_type', 'Not specified')}
+- Balance: ${account_info.get('balance', 'N/A')}
+- Dispute Reason: {account_info.get('reason', 'N/A')}
+"""
+
+    if account_info.get('notes'):
+        prompt += f"- Additional Details: {account_info['notes']}\n"
+
+    prompt += """
+REQUIREMENTS:
+1. Write a formal business letter in a professional tone
+2. Cite the Fair Credit Reporting Act (FCRA) rights
+3. Clearly state what is being disputed and why
+4. Request investigation and correction within 30 days
+5. Request written confirmation of results
+6. Be firm but respectful
+7. Keep it concise (300-500 words)
+8. Include proper letter structure (date, recipient, body, closing)
+9. Use "To Whom It May Concern:" as greeting
+10. Sign off with "Sincerely,"
+
+DO NOT include:
+- Sender's personal information in the body (will be added separately)
+- Threats or aggressive language
+- Irrelevant information
+- Legal jargon that's too complex
+
+Generate ONLY the letter body. Start with today's date and the bureau address."""
+
+    try:
+        # Call Ollama API
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "num_predict": 600  # Limit response length
+                }
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("response", "").strip()
+        else:
+            print(f"Ollama API error: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        print(f"Error generating letter with Ollama: {e}")
+        return None
 
 def generate_dispute_letter_ai(account_info: dict, personal_info: dict = None) -> str:
     """
     Generate a personalized credit dispute letter using AI
+    Tries Ollama first (free, local), falls back to OpenAI if needed
     
     Args:
         account_info: Dictionary with account details
@@ -36,7 +128,23 @@ def generate_dispute_letter_ai(account_info: dict, personal_info: dict = None) -
         Generated letter text
     """
     
-    # Build the prompt
+    # Try Ollama first (local, free)
+    print("🤖 Generating letter with Ollama...")
+    letter = generate_dispute_letter_ollama(account_info, personal_info)
+    
+    if letter:
+        print("✅ Letter generated successfully with Ollama!")
+        return letter
+    
+    # Fallback to OpenAI if Ollama fails
+    client = get_openai_client()
+    if not client:
+        print("⚠️  No AI available (Ollama failed, OpenAI key not set)")
+        return None
+    
+    print("🔄 Falling back to OpenAI GPT-4...")
+    
+    # Build the prompt (same as Ollama)
     prompt = f"""You are an expert credit repair specialist. Generate a professional, legally-compliant credit dispute letter.
 
 ACCOUNT INFORMATION:
@@ -96,6 +204,89 @@ Generate ONLY the letter body. Start with the date line."""
         # Fallback to template if AI fails
         print(f"AI generation failed: {e}")
         return generate_fallback_letter(account_info)
+
+
+def generate_dispute_letter_premium(account_info: dict, personal_info: dict = None, custom_instructions: str = "") -> str:
+    """
+    Generate a premium letter using GPT-4 with custom instructions
+    This is the paid tier - higher quality, customizable output
+    
+    Args:
+        account_info: Dictionary with account details
+        personal_info: Dictionary with sender details (optional)
+        custom_instructions: Custom prompt modifications (tone, emphasis, details)
+    
+    Returns:
+        Generated letter text
+    """
+    client = get_openai_client()
+    if not client:
+        print("❌ OpenAI API key not configured!")
+        return None
+    
+    print("✨ Generating PREMIUM letter with GPT-4...")
+    
+    # Build enhanced prompt with custom instructions
+    prompt = f"""You are an expert credit repair specialist. Generate a professional, legally-compliant credit dispute letter.
+
+ACCOUNT INFORMATION:
+- Credit Bureau: {account_info.get('bureau', 'N/A')}
+- Creditor: {account_info.get('creditor_name', 'N/A')}
+- Account Number: {account_info.get('account_number', 'N/A')}
+- Account Type: {account_info.get('account_type', 'Not specified')}
+- Balance: ${account_info.get('balance', 'N/A')}
+- Dispute Reason: {account_info.get('reason', 'N/A')}
+"""
+
+    if account_info.get('notes'):
+        prompt += f"- Additional Details: {account_info['notes']}\n"
+
+    # Add custom instructions
+    if custom_instructions:
+        prompt += f"\nCUSTOM REQUIREMENTS:\n{custom_instructions}\n"
+
+    prompt += """
+STANDARD REQUIREMENTS:
+1. Write a formal business letter
+2. Cite the Fair Credit Reporting Act (FCRA) rights
+3. Clearly state what is being disputed and why
+4. Request investigation and correction
+5. Request written confirmation of results
+6. Include proper letter structure (date, recipient, body, closing)
+7. Use "Dear Sir or Madam" as greeting
+8. Sign off with "Sincerely,"
+
+DO NOT include:
+- Sender's personal information in the body (will be added separately)
+- Threats or aggressive language
+- Irrelevant information
+
+Generate ONLY the letter body. Start with the date line."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",  # Premium GPT-4 for best quality
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an elite credit repair specialist with 20+ years experience. Your letters are meticulously crafted, legally bulletproof, and highly effective. You adapt your writing style based on client needs while maintaining professionalism."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.8,  # Higher creativity for premium tier
+            max_tokens=1000  # Allow longer, more detailed letters
+        )
+        
+        letter_content = response.choices[0].message.content.strip()
+        print("✅ Premium letter generated successfully!")
+        return letter_content
+        
+    except Exception as e:
+        print(f"❌ Premium generation failed: {e}")
+        return None
 
 
 def generate_fallback_letter(account_info: dict) -> str:

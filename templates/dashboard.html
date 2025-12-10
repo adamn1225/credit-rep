@@ -24,14 +24,13 @@
 
     <!-- Stats Cards -->
     <div class="row g-4 mb-4">
-        <div class="col-md-2">
+        <div class="col-md-3">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-2">Accounts</h6>
+                            <h6 class="text-muted mb-2">Total Accounts</h6>
                             <h2 class="mb-0">{{ stats.total_accounts }}</h2>
-                            <small class="text-muted">{{ stats.pending_accounts }} pending</small>
                         </div>
                         <div class="stat-icon bg-secondary">
                             <i class="bi bi-credit-card"></i>
@@ -41,12 +40,12 @@
             </div>
         </div>
         
-        <div class="col-md-2">
+        <div class="col-md-3">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-2">Total Disputes</h6>
+                            <h6 class="text-muted mb-2">Letters Sent</h6>
                             <h2 class="mb-0">{{ stats.total_disputes }}</h2>
                         </div>
                         <div class="stat-icon bg-primary">
@@ -57,14 +56,16 @@
             </div>
         </div>
         
-        <div class="col-md-2">
+        <div class="col-md-3">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Delivered</h6>
                             <h2 class="mb-0">{{ stats.delivered }}</h2>
-                            <small class="text-success">{{ stats.delivery_rate }}%</small>
+                            {% if stats.total_disputes > 0 %}
+                            <small class="text-success">{{ stats.delivery_rate }}% success</small>
+                            {% endif %}
                         </div>
                         <div class="stat-icon bg-success">
                             <i class="bi bi-check-circle"></i>
@@ -74,7 +75,7 @@
             </div>
         </div>
         
-        <div class="col-md-2">
+        <div class="col-md-3">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -89,30 +90,39 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="col-md-2">
+    <!-- Secondary Stats Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-2">Resolved</h6>
-                            <h2 class="mb-0">{{ stats.resolved }}</h2>
+                            <h6 class="text-muted mb-2">Queued to Send</h6>
+                            <h2 class="mb-0">{{ stats.queue_count }}</h2>
+                            {% if stats.queue_count > 0 %}
+                            <small class="text-warning">Ready to mail</small>
+                            {% endif %}
                         </div>
                         <div class="stat-icon bg-info">
-                            <i class="bi bi-check-circle-fill"></i>
+                            <i class="bi bi-clock-history"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-md-2">
+        <div class="col-md-6">
             <div class="card stat-card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-2">Failed</h6>
+                            <h6 class="text-muted mb-2">Failed Deliveries</h6>
                             <h2 class="mb-0">{{ stats.failed }}</h2>
+                            {% if stats.failed > 0 %}
+                            <small class="text-danger">Requires attention</small>
+                            {% endif %}
                         </div>
                         <div class="stat-icon bg-danger">
                             <i class="bi bi-x-circle"></i>
@@ -232,10 +242,10 @@
                                             <span class="badge bg-success">Resolved</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ account.uploaded_at[:10] }}</td>
+                                    <td>{{ account.uploaded_at.strftime('%Y-%m-%d') if account.uploaded_at else 'N/A' }}</td>
                                     <td>
                                         {% if account.status == 'pending' %}
-                                        <a href="{{ url_for('add_dispute') }}?account_id={{ account.id }}" 
+                                        <a href="{{ url_for('preview_letter', account_id=account.id) }}" 
                                            class="btn btn-sm btn-success">
                                             <i class="bi bi-send"></i> Dispute
                                         </a>
@@ -261,13 +271,13 @@
     <div class="text-center py-5">
         <i class="bi bi-inbox" style="font-size: 4rem; color: #ccc;"></i>
         <h3 class="mt-3">No disputes logged yet</h3>
-        <p class="text-muted">Get started by adding a new dispute or sending a batch.</p>
+        <p class="text-muted">Get started by adding accounts to dispute.</p>
         <div class="mt-4">
-            <a href="{{ url_for('add_dispute') }}" class="btn btn-primary me-2">
-                <i class="bi bi-plus-circle"></i> Add New Dispute
+            <a href="{{ url_for('accounts') }}" class="btn btn-primary me-2">
+                <i class="bi bi-credit-card"></i> Add Accounts
             </a>
             <a href="{{ url_for('send_batch') }}" class="btn btn-outline-primary">
-                <i class="bi bi-send"></i> Send Batch
+                <i class="bi bi-send"></i> Send Letters
             </a>
         </div>
     </div>

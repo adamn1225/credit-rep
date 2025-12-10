@@ -185,7 +185,6 @@
 - [ ] Add Content Security Policy (CSP) headers
 
 ### Advanced Features
-- [ ] Multi-user accounts (family plans)
 - [ ] White-label reseller program
 - [ ] API access for developers
 - [ ] Bulk dispute management (upload CSV of accounts)

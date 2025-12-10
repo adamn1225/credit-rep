@@ -11,6 +11,10 @@ import requests
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
+
+# Load environment variables BEFORE importing db module
+load_dotenv()
+
 from db import (
     verify_user, update_password, get_user, create_user,
     get_user_disputes, get_user_stats, log_dispute,
@@ -18,12 +22,10 @@ from db import (
     add_document, get_user_documents, get_document_by_id, delete_document,
     update_document_analysis, get_disputes_awaiting_response,
     get_user_by_email, create_user_with_email, update_last_login_by_email,
-    check_profile_completed, update_user_profile
+    check_profile_completed, update_user_profile, update_dispute_pdf_path
 )
 from document_analyzer import analyze_document
 import hashlib
-
-load_dotenv()
 
 def validate_password(password):
     """Validate password meets security requirements"""
@@ -601,44 +603,9 @@ def reset_password():
 @app.route('/add-dispute', methods=['GET', 'POST'])
 @login_required
 def add_dispute():
-    """Add new dispute page"""
-    user_id = session.get('user_id')
-    
-    if request.method == 'POST':
-        bureau = request.form.get('bureau')
-        creditor = request.form.get('creditor')
-        account = request.form.get('account')
-        reason = request.form.get('reason')
-        immediate_send = request.form.get('immediate_send') == 'on'
-        
-        if all([bureau, creditor, account, reason]):
-            # Log dispute with user_id (tracking_id will be added when actually sent)
-            dispute_id = log_dispute(
-                user_id=user_id,
-                account_number=account,
-                bureau=bureau,
-                description=reason,  # Fixed: use 'description' parameter
-                tracking_id=None,     # Will be updated when sent via Lob
-                status='pending',
-                creditor_name=creditor
-            )
-            
-            flash(f'✅ Added {bureau} dispute for {creditor}!', 'success')
-            
-            if immediate_send:
-                # Run batch immediately
-                result = subprocess.run(['python3', 'batch_processor.py'], 
-                    capture_output=True, text=True, cwd=os.getcwd())
-                if result.returncode == 0:
-                    flash('✅ Dispute sent immediately!', 'success')
-                else:
-                    flash('⚠️ Added to queue, but send failed. Check logs.', 'warning')
-            
-            return redirect(url_for('dashboard'))
-        else:
-            flash('All fields are required.', 'warning')
-    
-    return render_template('add_dispute.html', username=session.get('username'))
+    """Redirect to accounts page (deprecated route)"""
+    flash('ℹ️ Please add accounts first, then generate dispute letters from there.', 'info')
+    return redirect(url_for('accounts'))
 
 @app.route('/accounts', methods=['GET', 'POST'])
 @login_required
@@ -660,6 +627,7 @@ def accounts():
             notes = request.form.get('notes')
             
             if all([bureau, creditor, account_number, reason]):
+                # Add account to database
                 add_user_account(
                     user_id=user_id,
                     bureau=bureau,
@@ -670,8 +638,21 @@ def accounts():
                     balance=float(balance) if balance else None,
                     notes=notes
                 )
-                flash(f'✅ Added account: {creditor} - {account_number}', 'success')
-                return redirect(url_for('accounts'))
+                
+                # Also create a pending dispute automatically for the funnel
+                log_dispute(
+                    user_id=user_id,
+                    account_number=account_number,
+                    bureau=bureau,
+                    description=reason,
+                    tracking_id=None,
+                    status='pending',
+                    creditor_name=creditor
+                )
+                
+                flash(f'✅ Account added! Ready to send dispute letter.', 'success')
+                # Redirect to send batch to complete the funnel
+                return redirect(url_for('send_batch'))
             else:
                 flash('❌ Bureau, creditor, account number, and reason are required.', 'danger')
         
@@ -777,7 +758,8 @@ def upload_accounts():
                     flash(f'  • ... and {len(errors) - 5} more errors', 'warning')
             
             if success_count > 0:
-                return redirect(url_for('accounts'))
+                flash(f'📨 Ready to generate dispute letters!', 'info')
+                return redirect(url_for('send_batch'))
                 
         except Exception as e:
             flash(f'❌ Error processing file: {str(e)}', 'danger')
@@ -880,21 +862,39 @@ def send_batch():
 @app.route('/generate-batch', methods=['POST'])
 @login_required
 def generate_batch():
-    """Generate PDFs for pending disputes (no sending yet)"""
+    """Generate PDFs for selected disputes"""
     from generator import render_letter, generate_pdf
     
     user_id = session.get('user_id')
     
-    # Get pending disputes from PostgreSQL
-    disputes = get_user_disputes(user_id, status='pending')
+    # Get selected dispute IDs from form
+    selected_ids = request.form.getlist('selected_disputes')
+    
+    if not selected_ids:
+        flash('⚠️ Please select at least one dispute to generate.', 'warning')
+        return redirect(url_for('send_batch'))
+    
+    # Get all pending disputes
+    all_disputes = get_user_disputes(user_id, status='pending')
+    
+    # Filter to only selected disputes
+    disputes = [d for d in all_disputes if str(d['id']) in selected_ids]
     
     if not disputes:
-        flash('⚠️ No pending disputes to generate.', 'warning')
+        flash('⚠️ No valid disputes found.', 'warning')
         return redirect(url_for('send_batch'))
     
     generated_count = 0
+    skipped_count = 0
+    
     for dispute in disputes:
         try:
+            # Check if PDF already exists (cached)
+            if dispute.get('pdf_path') and Path(dispute['pdf_path']).exists():
+                print(f"✓ Skipping {dispute['account_number']} - PDF already exists")
+                skipped_count += 1
+                continue
+            
             # Prepare account info - handle None values from LEFT JOIN
             account_info = {
                 'bureau': dispute['bureau'],
@@ -907,6 +907,7 @@ def generate_batch():
             }
             
             # Generate letter with AI
+            print(f"🤖 Generating letter for {dispute['account_number']}...")
             letter_text = render_letter(account_info, use_ai=True)
             
             # Generate PDF
@@ -915,12 +916,21 @@ def generate_batch():
             pdf_path = bureau_dir / f"{dispute['account_number']}.pdf"
             generate_pdf(letter_text, pdf_path)
             
+            # Save PDF path to database
+            from db import update_dispute_pdf_path
+            update_dispute_pdf_path(dispute['id'], pdf_path)
+            
             generated_count += 1
             
         except Exception as e:
             flash(f'❌ Error generating PDF for {dispute["account_number"]}: {str(e)}', 'danger')
     
-    flash(f'✅ Generated {generated_count} PDF letter(s)! Review them before sending.', 'success')
+    if skipped_count > 0:
+        flash(f'ℹ️ Skipped {skipped_count} letter(s) - already generated', 'info')
+    
+    if generated_count > 0:
+        flash(f'✅ Generated {generated_count} new PDF letter(s)! Review them before sending.', 'success')
+    
     return redirect(url_for('review_batch'))
 
 @app.route('/review-batch', methods=['GET'])
@@ -966,6 +976,96 @@ def send_to_lob():
     else:
         flash(f'❌ Send failed: {result.stderr}', 'danger')
         return redirect(url_for('review_batch'))
+
+@app.route('/regenerate-with-premium-ai', methods=['POST'])
+@login_required
+def regenerate_with_premium_ai():
+    """Regenerate a letter with GPT-4 and custom prompt"""
+    from ai_generator import generate_dispute_letter_premium
+    from generator import generate_pdf
+    
+    dispute_id = request.form.get('dispute_id')
+    tone = request.form.get('tone', 'professional')
+    additional_details = request.form.get('additional_details', '')
+    emphasis = request.form.get('emphasis', '')
+    length = request.form.get('length', 'standard')
+    
+    # Get dispute details
+    disputes = get_user_disputes(session['user_id'])
+    dispute = next((d for d in disputes if d['id'] == int(dispute_id)), None)
+    
+    if not dispute:
+        flash('❌ Dispute not found!', 'danger')
+        return redirect(url_for('review_batch'))
+    
+    # TODO: Add Stripe payment verification here ($1.99 charge)
+    # For now, just flash a warning that payment would be required
+    flash('⚠️ Payment integration coming soon! This is a demo.', 'warning')
+    
+    try:
+        # Build custom prompt instructions
+        custom_instructions = f"""
+        Tone: {tone}
+        Length: {length}
+        """
+        
+        if additional_details:
+            custom_instructions += f"\nAdditional Details: {additional_details}"
+        
+        if emphasis:
+            custom_instructions += f"\nSpecial Emphasis: {emphasis}"
+        
+        # Prepare account info
+        account_info = {
+            'creditor_name': dispute['creditor_name'],
+            'account_number': dispute['account_number'],
+            'account_type': dispute.get('account_type', 'credit card'),
+            'balance': dispute.get('balance', 0),
+            'reason': dispute.get('reason', dispute['description']),
+            'notes': dispute.get('notes', ''),
+            'bureau': dispute['bureau']
+        }
+        
+        # Get user info for letter
+        user = get_user(session.get('username'))
+        personal_info = {
+            'name': user.get('full_name', session.get('username')),
+            'address': user.get('address', ''),
+            'city': user.get('city', ''),
+            'state': user.get('state', ''),
+            'zip': user.get('zip', '')
+        }
+        
+        # Call premium AI generator
+        letter_content = generate_dispute_letter_premium(
+            account_info, 
+            personal_info,
+            custom_instructions
+        )
+        
+        if not letter_content:
+            flash('❌ Premium AI generation failed! Please try again.', 'danger')
+            return redirect(url_for('review_batch'))
+        
+        # Generate new PDF with premium content
+        pdf_output_dir = Path(f'disputes/generated/{dispute["bureau"].lower()}')
+        pdf_output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Use _premium suffix to distinguish from free version
+        pdf_filename = f"{dispute['account_number']}_premium.pdf"
+        pdf_path = pdf_output_dir / pdf_filename
+        
+        generate_pdf(letter_content, pdf_path)
+        
+        # Update database with new premium PDF path
+        update_dispute_pdf_path(dispute_id, str(pdf_path))
+        
+        flash('✅ Letter regenerated with Premium AI (GPT-4)!', 'success')
+        
+    except Exception as e:
+        flash(f'❌ Regeneration failed: {str(e)}', 'danger')
+    
+    return redirect(url_for('review_batch'))
 
 @app.route('/check-status', methods=['POST'])
 @login_required
